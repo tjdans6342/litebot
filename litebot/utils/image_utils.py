@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-이미지 처리 유틸리티 함수들
-ROI, BEV, Color Filter, Hough Line Transform 등을 제공합니다.
+    이미지 처리 유틸리티 함수들
+    ROI, BEV, Color Filter, Hough Line Transform 등을 제공합니다.
 """
 import cv2
 import numpy as np
@@ -12,25 +12,25 @@ import math
 
 def to_roi(image, vertices, normalized=True):
     """
-    Extract and return only the polygonal region of interest (ROI) defined by given vertices.
-    (Supports both absolute pixel coordinates and normalized ratio coordinates.)
+        Extract and return only the polygonal region of interest (ROI) defined by given vertices.
+        (Supports both absolute pixel coordinates and normalized ratio coordinates.)
 
-    Parameters
-    ----------
-    image : np.ndarray
-        입력 이미지 (BGR 또는 Grayscale 형식)
-    vertices : np.ndarray
-        ROI를 정의하는 다각형의 꼭짓점 좌표 배열.
-        normalized=True일 경우, (x, y)는 [0.0~1.0] 비율로 표현됨.
-        예: np.array([[(0.1, 0.7), (0.9, 0.7), (1.0, 1.0), (0.0, 1.0)]])
-    normalized : bool, default=True
-        True → vertices가 비율 단위로 입력됨 (자동으로 픽셀 좌표로 변환)
-        False → vertices가 픽셀 단위로 직접 입력됨
+        Parameters
+        ----------
+        image : np.ndarray
+            입력 이미지 (BGR 또는 Grayscale 형식)
+        vertices : np.ndarray
+            ROI를 정의하는 다각형의 꼭짓점 좌표 배열.
+            normalized=True일 경우, (x, y)는 [0.0~1.0] 비율로 표현됨.
+            예: np.array([[(0.1, 0.7), (0.9, 0.7), (1.0, 1.0), (0.0, 1.0)]])
+        normalized : bool, default=True
+            True → vertices가 비율 단위로 입력됨 (자동으로 픽셀 좌표로 변환)
+            False → vertices가 픽셀 단위로 직접 입력됨
 
-    Returns
-    -------
-    roi_image : np.ndarray
-        지정된 다각형 영역만 남기고 나머지 부분은 0(검정색)으로 마스크 처리된 이미지
+        Returns
+        -------
+        roi_image : np.ndarray
+            지정된 다각형 영역만 남기고 나머지 부분은 0(검정색)으로 마스크 처리된 이미지
     """
 
     h, w = image.shape[:2]
@@ -57,33 +57,33 @@ def to_roi(image, vertices, normalized=True):
 
 def to_bev(image, top=0.7, bottom=0.0, margin=0.2, dst_size=None, normalized=True):
     """
-    Perform Bird’s Eye View (BEV) perspective transform based on proportional or pixel-based region settings.
+        Perform Bird’s Eye View (BEV) perspective transform based on proportional or pixel-based region settings.
 
-    Parameters
-    ----------
-    image : np.ndarray
-        입력 이미지 (BGR 형식)
-    top : float or int, default=0.7
-        BEV 변환 상단 경계 (비율 또는 픽셀값).
-        normalized=True → 비율 (0~1)
-        normalized=False → 픽셀 단위
-    bottom : float or int, default=0.0
-        BEV 변환 하단 경계 (비율 또는 픽셀값).
-    margin : float or int, default=0.2
-        윗변 좌우 여유폭 (비율 또는 픽셀 단위).
-    dst_size : tuple(int, int) or None, default=None
-        출력 BEV 이미지 크기 (width, height).
-        None이면 원본 비율 기반으로 자동 계산됨.
-    normalized : bool, default=True
-        True → 비율로(top, bottom, margin) 계산
-        False → 픽셀 단위로 직접 사용
+        Parameters
+        ----------
+        image : np.ndarray
+            입력 이미지 (BGR 형식)
+        top : float or int, default=0.7
+            BEV 변환 상단 경계 (비율 또는 픽셀값).
+            normalized=True → 비율 (0~1)
+            normalized=False → 픽셀 단위
+        bottom : float or int, default=0.0
+            BEV 변환 하단 경계 (비율 또는 픽셀값).
+        margin : float or int, default=0.2
+            윗변 좌우 여유폭 (비율 또는 픽셀 단위).
+        dst_size : tuple(int, int) or None, default=None
+            출력 BEV 이미지 크기 (width, height).
+            None이면 원본 비율 기반으로 자동 계산됨.
+        normalized : bool, default=True
+            True → 비율로(top, bottom, margin) 계산
+            False → 픽셀 단위로 직접 사용
 
-    Returns
-    -------
-    bev_img : np.ndarray
-        BEV 변환 결과 이미지
-    Minv : np.ndarray
-        BEV → 원본 시점으로 되돌리는 역변환 행렬
+        Returns
+        -------
+        bev_img : np.ndarray
+            BEV 변환 결과 이미지
+        Minv : np.ndarray
+            BEV → 원본 시점으로 되돌리는 역변환 행렬
     """
 
     h, w = image.shape[:2]
@@ -136,24 +136,24 @@ def to_bev(image, top=0.7, bottom=0.0, margin=0.2, dst_size=None, normalized=Tru
 
 def color_filter(image, hls_range, inverse=False):
     """
-    Apply HLS-based color filtering on the input image with optional inversion.
+        Apply HLS-based color filtering on the input image with optional inversion.
 
-    Parameters
-    ----------
-    image : np.ndarray
-        BGR 형식의 입력 이미지
-    hls_range : list
-        필터링할 HLS 범위 리스트.
-        예: [[(h1s, l1s, s1s), (h1e, l1e, s1e)], [(h2s, l2s, s2s), (h2e, l2e, s2e)]]
-        각 튜플은 (H, L, S) 최소/최대값을 의미.
-    inverse : bool, default=False
-        False → 지정된 범위 내 픽셀만 남김 (정상 필터링)
-        True  → 지정된 범위 내 픽셀을 제외하고 나머지를 남김 (역필터링)
+        Parameters
+        ----------
+        image : np.ndarray
+            BGR 형식의 입력 이미지
+        hls_range : list
+            필터링할 HLS 범위 리스트.
+            예: [[(h1s, l1s, s1s), (h1e, l1e, s1e)], [(h2s, l2s, s2s), (h2e, l2e, s2e)]]
+            각 튜플은 (H, L, S) 최소/최대값을 의미.
+        inverse : bool, default=False
+            False → 지정된 범위 내 픽셀만 남김 (정상 필터링)
+            True  → 지정된 범위 내 픽셀을 제외하고 나머지를 남김 (역필터링)
 
-    Returns
-    -------
-    masked : np.ndarray
-        필터링된 결과 이미지
+        Returns
+        -------
+        masked : np.ndarray
+            필터링된 결과 이미지
     """
     # BGR → HLS 변환
     hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
@@ -180,25 +180,25 @@ def color_filter(image, hls_range, inverse=False):
 
 def get_hough_image(canny_image, slope_threshold=10, min_votes=100, min_line_len=50, max_line_gap=10):
     """
-    Perform Probabilistic Hough Transform (HoughLinesP) on a Canny edge image and remove near-horizontal lines.
+        Perform Probabilistic Hough Transform (HoughLinesP) on a Canny edge image and remove near-horizontal lines.
 
-    Parameters
-    ----------
-    canny_image : np.ndarray
-        Binary image (result of cv2.Canny).
-    slope_threshold : float, default=10
-        Degree threshold: lines with |slope| < slope_threshold are considered horizontal and will be filtered out.
-    min_votes : int, default=100
-        Minimum number of votes required to consider a line (Hough accumulator threshold).
-    min_line_len : int, default=50
-        Minimum line length. Line segments shorter than this are rejected.
-    max_line_gap : int, default=10
-        Maximum allowed gap between points on the same line to link them.
+        Parameters
+        ----------
+        canny_image : np.ndarray
+            Binary image (result of cv2.Canny).
+        slope_threshold : float, default=10
+            Degree threshold: lines with |slope| < slope_threshold are considered horizontal and will be filtered out.
+        min_votes : int, default=100
+            Minimum number of votes required to consider a line (Hough accumulator threshold).
+        min_line_len : int, default=50
+            Minimum line length. Line segments shorter than this are rejected.
+        max_line_gap : int, default=10
+            Maximum allowed gap between points on the same line to link them.
 
-    Returns
-    -------
-    hough_img : np.ndarray
-        Binary image (0 or 255) containing only filtered Hough lines.
+        Returns
+        -------
+        hough_img : np.ndarray
+            Binary image (0 or 255) containing only filtered Hough lines.
     """
 
     # --- (1) Probabilistic Hough Transform 수행 ---

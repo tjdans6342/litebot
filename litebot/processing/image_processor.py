@@ -30,10 +30,6 @@ class ImageProcessor:
         TODO: 나중에 configs/lane_config.py에서 가져오도록 수정
         """
 
-        # --- Default Configuration ---
-        self.display_mode = True
-        self.image_names = ["Original", "BEV", "Filtered", "Canny", "Hough"]
-
         # --- BEV 변환 파라미터 ---
         self.bev_normalized = True
         self.roi_top = 0.75
@@ -120,8 +116,7 @@ class ImageProcessor:
             max_line_gap=self.hough_max_line_gap
         )
         
-        # 이미지 딕셔너리 구성
-        images = {
+        return {
             "original": frame.copy(),
             "bev": bev_img,
             "filtered": filtered_img,
@@ -131,52 +126,4 @@ class ImageProcessor:
             "canny": canny_img,
             "hough": hough_img
         }
-        
-        # Display mode가 활성화되어 있으면 이미지 표시
-        if self.display_mode:
-            self._display_images(images)
-        
-        return images
-    
-    def _display_images(self, images):
-        """
-        display_mode가 True일 때 처리된 이미지들을 표시
-        
-        Args:
-            images: 처리된 이미지들의 딕셔너리
-        """
-        window_pos = [
-            (0, 0), (600, 0), (1200, 0),
-            (0, 600), (600, 600), (1200, 600),
-            (0, 0), (600, 0), (1200, 0),
-            (0, 600), (600, 600), (1200, 600)
-        ]
-        
-        # 이미지 이름 매핑 (image_names에 있는 것만 표시)
-        display_mapping = {
-            "Original": "original",
-            "BEV": "bev",
-            "Filtered": "filtered",
-            "gray": "gray",
-            "Blurred": "blur",
-            "binary": "binary",
-            "Canny": "canny",
-            "Hough": "hough"
-        }
-        
-        for i, name in enumerate(self.image_names):
-            if name in display_mapping:
-                img_key = display_mapping[name]
-                if img_key in images and images[img_key] is not None:
-                    # 그레이스케일 이미지는 BGR로 변환
-                    img = images[img_key]
-                    if len(img.shape) == 2:
-                        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-                    
-                    cv2.namedWindow(name)
-                    if i < len(window_pos):
-                        cv2.moveWindow(name, window_pos[i][0], window_pos[i][1])
-                    cv2.imshow(name, img)
-        
-        cv2.waitKey(1)
 

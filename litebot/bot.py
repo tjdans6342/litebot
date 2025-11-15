@@ -90,10 +90,10 @@ class LiteBot:
         
         # 3. 감지 수행
         observations = {
-            "lane": self.observer.observe_lines(self.images.get("hough")),
-            "aruco": self.observer.observe_aruco(self.images.get("original")),
-            "pothole": self.observer.observe_pothole(self.images.get("binary")),
-            "qr_codes": self.observer.observe_qr_codes(self.images.get("original")),
+            "lane": self.observer.observe_lines(self.images["hough"]),
+            "aruco": self.observer.observe_aruco(self.images["original"]),
+            "pothole": self.observer.observe_pothole(self.images["binary"]),
+            "qr_codes": self.observer.observe_qr_codes(self.images["original"]),
             # 필요한 경우 다른 감지 추가
         }
         

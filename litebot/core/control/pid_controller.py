@@ -9,18 +9,18 @@ PID Controller 클래스
 
 class PIDController:
     """
-    PID (Proportional-Integral-Derivative) 제어기
-    오차를 입력받아 제어 값을 계산합니다.
+        PID (Proportional-Integral-Derivative) 제어기
+        오차를 입력받아 제어 값을 계산합니다.
     """
     
     def __init__(self, kp=0.5, ki=0.0, kd=0.1):
         """
-        PID Controller 초기화
-        
-        Args:
-            kp: 비례 상수 (Proportional gain)
-            ki: 적분 상수 (Integral gain)
-            kd: 미분 상수 (Derivative gain)
+            PID Controller 초기화
+            
+            Args:
+                kp: 비례 상수 (Proportional gain)
+                ki: 적분 상수 (Integral gain)
+                kd: 미분 상수 (Derivative gain)
         """
         self.kp = kp
         self.ki = ki
@@ -32,13 +32,13 @@ class PIDController:
     
     def update(self, error):
         """
-        PID 제어 값을 계산합니다.
-        
-        Args:
-            error: 현재 오차 (차선 offset 등)
-        
-        Returns:
-            float: 계산된 제어 값
+            PID 제어 값을 계산합니다.
+            
+            Args:
+                error: 현재 오차 (차선 position 등)
+            
+            Returns:
+                float: 계산된 제어 값
         """
         # 비례 항
         proportional = self.kp * error
@@ -57,7 +57,7 @@ class PIDController:
     
     def reset(self):
         """
-        PID Controller 상태를 초기화합니다.
+            PID Controller 상태를 초기화합니다.
         """
         self.integral = 0.0
         self.prev_error = 0.0

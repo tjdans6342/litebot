@@ -2,30 +2,30 @@
 # -*- coding: utf-8 -*-
 
 """
-차선 감지 관련 유틸리티 함수들
+    차선 감지 관련 유틸리티 함수들
 """
 import numpy as np
 
 
 def lane_detection(hough, nwindows, width, minpix):
     """
-    Sliding Window로 중심선 탐지
-    
-    Args:
-        hough: Hough Line 이미지 (바이너리)
-        nwindows: 윈도우 개수
-        width: 윈도우 너비 (이미지 너비의 비율 또는 픽셀값)
-        minpix: 윈도우 내 최소 픽셀 수
-    
-    Returns:
-        dict: 차선 정보
-            - "offset": 정규화된 오프셋 (-1.0 ~ 1.0)
-            - "heading": 차선 각도 (라디안)
-            - "fit": 2차 다항식 계수
-            - "x": x 좌표 리스트
-            - "y": y 좌표 리스트
-            - "mid_avg": x 좌표 평균
-        또는 None (차선을 감지하지 못한 경우)
+        Sliding Window로 중심선 탐지
+        
+        Args:
+            hough: Hough Line 이미지 (바이너리)
+            nwindows: 윈도우 개수
+            width: 윈도우 너비 (이미지 너비의 비율 또는 픽셀값)
+            minpix: 윈도우 내 최소 픽셀 수
+        
+        Returns:
+            dict: 차선 정보
+                - "position": 정규화된 차선 위치 편차 (-1.0 ~ 1.0)
+                - "heading": 차선 각도 (라디안)
+                - "fit": 2차 다항식 계수
+                - "x": x 좌표 리스트
+                - "y": y 좌표 리스트
+                - "mid_avg": x 좌표 평균
+            또는 None (차선을 감지하지 못한 경우)
     """
     h, w = hough.shape
     
@@ -82,24 +82,26 @@ def lane_detection(hough, nwindows, width, minpix):
     # 하단 중심점 계산
     center_x_bottom = np.polyval(fit, h)
     
-    # 오프셋 계산 (이미지 중심으로부터의 거리)
+    # 차선 위치 편차 계산 (이미지 중심으로부터의 거리)
     # 왼쪽이 +, 오른쪽이 - (원본 코드와 반대)
     distance = (w / 2.0) - center_x_bottom
-    offset = distance / (w / 2.0)  # -1.0 ~ 1.0으로 정규화
+    position = distance / (w / 2.0)  # -1.0 ~ 1.0으로 정규화
     
     # Heading 계산 (기울기 근사)
     heading = np.arctan(fit[1])  # 1차 계수의 arctan
     
     # 예외 처리
     if center_x_bottom == 0:
-        offset = 0.0
+        position = 0.0
     
     return {
         "heading": heading,
-        "offset": offset,
+        "position": position,
         "fit": fit,
         "x": x_list,
         "y": y_list,
-        "mid_avg": np.mean(x_list)
+        "mid_avg": np.mean(x_list),
+        "window_width": width,
+        "nwindows": nwindows
     }
 
