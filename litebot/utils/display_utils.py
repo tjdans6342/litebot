@@ -8,14 +8,14 @@ import cv2
 import numpy as np
 
 DEFAULT_IMAGE_TARGETS = [
-    ("Original", "original"),
-    ("BEV", "bev"),
-    ("Filtered", "filtered"),
-    ("gray", "gray"),
-    ("Blurred", "blur"),
-    ("binary", "binary"),
-    ("Canny", "canny"),
-    ("Hough", "hough"),
+    "original",
+    "bev",
+    "filtered",
+    "gray",
+    "blur",
+    "binary",
+    "canny",
+    "hough",
 ]
 
 DEFAULT_WINDOW_POSITIONS = [
@@ -30,7 +30,7 @@ def display_images(images, image_targets=None, window_positions=None):
 
         Args:
             images (dict): 이미지 딕셔너리 (ImageProcessor 결과 등)
-            image_targets (list): (창 이름, 딕셔너리 키) 튜플 리스트
+            image_targets (list): 이미지 딕셔너리 키 리스트 (각 키가 창 이름 및 이미지 접근 둘 다에 사용)
             window_positions (list): 창 위치 리스트 [(x, y), ...]
     """
     if images is None:
@@ -39,11 +39,12 @@ def display_images(images, image_targets=None, window_positions=None):
     if image_targets is None:
         image_targets = DEFAULT_IMAGE_TARGETS
 
-    for idx, (window_name, key) in enumerate(image_targets):
+    for idx, key in enumerate(image_targets):
         if key not in images or images[key] is None:
             continue
 
         img = images[key]
+        window_name = key
         if len(img.shape) == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 

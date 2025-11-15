@@ -42,6 +42,7 @@ class Observer:
                     - "mid_avg": 윈도우 중심 평균 x 좌표
                     - "window_width": 슬라이딩 윈도우 너비 (px)
                     - "nwindows": 사용한 윈도우 개수
+                    - "exist_lines": 차선 존재 여부 (False이면 다른 키가 없을 수 있음)
                 또는 None (차선을 감지하지 못한 경우)
         """
         if image is None:

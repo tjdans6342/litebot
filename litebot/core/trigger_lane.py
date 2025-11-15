@@ -11,10 +11,10 @@ from collections import deque
 class LaneTrigger:
     """ 차선 정보를 기반으로 주행 모드를 선택하고 속도/각속도 명령을 반환하는 Trigger """
     
-    def __init__(self):
+    def __init__(self, maxlength=20):
         """ LaneTrigger 초기화 """
-        self.heading_history = deque(maxlen=5)
-        self.position_history = deque(maxlen=5)
+        self.heading_history = deque(maxlen=maxlength)
+        self.position_history = deque(maxlen=maxlength)
         
         # 직선 / 곡선 모드 옵션 (speed, position_weight, heading_weight)
         self.linear_option = (0.1 * 1.5, 0.3 * 1.5, 0.3 * 1.5)
@@ -34,6 +34,8 @@ class LaneTrigger:
         lane = obs.get("lane")
         if not lane:
             return None
+        if not lane.get("exist_lines", True): # 차선이 없으면 액션 반환 X
+            return None
         
         heading_err = float(lane.get("heading", 0.0))
         position_err = float(lane.get("position", 0.0))
@@ -41,7 +43,7 @@ class LaneTrigger:
         
         is_linear = True
         for prev_heading, prev_position in zip(self.heading_history, self.position_history):
-            if abs(prev_heading) >= 0.3 or abs(prev_position) >= 0.3:
+            if abs(prev_heading) >= 0.3:
                 is_linear = False
                 break
         

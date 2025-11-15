@@ -25,8 +25,16 @@ def lane_detection(hough, nwindows, width, minpix):
                 - "x": x 좌표 리스트
                 - "y": y 좌표 리스트
                 - "mid_avg": x 좌표 평균
-            또는 None (차선을 감지하지 못한 경우)
+                - "exist_lines": 차선 유무 (bool)
+            또는 None (입력이 잘못된 경우)
     """
+    if hough is None:
+        return None
+
+    exist_lines = bool(np.max(hough) > 0)
+    if not exist_lines:
+        return {"exist_lines": False}
+
     h, w = hough.shape
     
     # 하단 절반 영역의 히스토그램으로 중심점 찾기
@@ -74,7 +82,7 @@ def lane_detection(hough, nwindows, width, minpix):
     
     # 최소 3개 점이 있어야 피팅 가능
     if len(x_list) < 3:
-        return None
+        return {"exist_lines": False}
     
     # 2차 다항식 피팅 (y를 독립변수로, x를 종속변수로)
     fit = np.polyfit(y_list, x_list, 2)
@@ -102,6 +110,7 @@ def lane_detection(hough, nwindows, width, minpix):
         "y": y_list,
         "mid_avg": np.mean(x_list),
         "window_width": width,
-        "nwindows": nwindows
+        "nwindows": nwindows,
+        "exist_lines": True
     }
 

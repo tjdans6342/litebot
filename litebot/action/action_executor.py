@@ -7,6 +7,7 @@
 """
 import math
 
+from ai.detection_bridge import DetectionBridge
 from litebot.io.ros.ros_controller import ROSController
 from litebot.io.tiki.tiki_controller import TikiController
 from litebot.core.control.pid_controller import PIDController
@@ -37,6 +38,7 @@ class ActionExecutor:
         self.turn_speed = 0.15  # m/s
         # 제자리 회전 시 wheel_base(축간거리)로 쓰임 - 필요 없으면 삭제 가능
         self.turn_diameter = 0.3  # m
+        self._detection_bridge = None
     
     def execute(self, action):
         """
@@ -44,7 +46,7 @@ class ActionExecutor:
             
             Args:
                 action: (command, value) 형태의 튜플
-                    - command: 액션 명령 ("stop", "drive_forward", "drive_backward", "drive_circle", "adjust_steering", "avoid_pothole", "qr_command", "yolo_capture")
+                    - command: 액션 명령 ("stop", "drive_forward", "drive_backward", "drive_circle", "adjust_steering", "avoid_pothole", "qr_command", "capture")
                     - value: 액션에 필요한 값
         """
         if not action:
@@ -257,37 +259,82 @@ class ActionExecutor:
         # TODO: QR 코드 명령에 따른 처리 로직 구현
         print("QR Command received: {}".format(qr_code))
     
-    def _execute_yolo_capture(self, value):
+    def _execute_capture(self, value):
         """
-            YOLO 캡처 액션 실행 - 이미지를 특정 위치에 저장
+            캡처 액션 실행 - 옵션에 따라 파일 시스템 저장 또는 객체 감지 파이프라인으로 전달
             
             Args:
-                value: (image, save_path) 형태의 튜플 또는 dict
-                    - image: 저장할 이미지
-                    - save_path: 저장할 경로
+                value:
+                    - tuple(image, save_path): 기존 방식과 동일하게 경로에 저장
+                    - dict:
+                        image: 필수, numpy.ndarray 프레임
+                        save_path: 직접 저장 시 경로
+                        mode: "object_detection" 이면 DetectionBridge 사용
+                        suffix: object_detection 모드에서 파일명에 덧붙일 문자열
+                        base_dir: DetectionBridge 기본 디렉터리 재정의(선택)
         """
         import cv2
         import os
+        
+        image = None
+        save_path = None
+        mode = None
+        suffix = None
+        base_dir = None
         
         if isinstance(value, tuple) and len(value) == 2:
             image, save_path = value
         elif isinstance(value, dict):
             image = value.get("image")
             save_path = value.get("save_path")
+            mode = value.get("mode")
+            suffix = value.get("suffix")
+            base_dir = value.get("base_dir")
         else:
-            print("Invalid value format for yolo_capture. Expected (image, save_path) or dict")
+            print("Invalid value format for capture. Expected tuple or dict.")
             return
         
-        if image is None or save_path is None:
-            print("Image or save_path is None")
+        if image is None:
+            print("Image is None in capture action.")
             return
         
-        # 디렉토리가 없으면 생성
+        # --- object_detection 모드: 객체 감지 파이프라인에 이미지 전달 ---
+        # mode가 "object_detection"이면 DetectionBridge를 사용해서 세션 이미지 폴더에 저장(큐잉)합니다.
+        # 이 이미지는 object_detector.py에 의해 추후 감지 처리됨.
+        # {
+        #     "image": frame,              # numpy ndarray
+        #     "mode": "object_detection",  # 이 값이 있어야 브리지로 전달
+        #     "suffix": "pothole",         # 선택: 파일명 끝에 붙는 태그
+        #     "base_dir": "detecting"      # 선택: 세션 디렉터리 위치
+        # }
+        if mode == "object_detection":
+            try:
+                bridge = self._get_detection_bridge(base_dir)
+                saved = bridge.save_frame(image, suffix=suffix)
+                print("Image enqueued for object detection: {}".format(saved))
+            except Exception as exc:
+                print("Failed to enqueue image for detection: {}".format(exc))
+            return
+        
+        # --- 일반 파일 저장 모드: 이미지를 지정 경로에 저장 ---
+        # save_path가 반드시 필요하며, 없으면 에러 메시지 반환
+        if save_path is None:
+            print("save_path is required for file capture mode.")
+            return
+        
+        # 지정된 경로에 폴더가 없다면 생성
         dir_path = os.path.dirname(save_path)
         if dir_path and not os.path.exists(dir_path):
             os.makedirs(dir_path)
         
-        # 이미지 저장
+        # OpenCV를 이용하여 이미지를 파일로 저장. 경로 및 성공 메시지 출력.
         cv2.imwrite(save_path, image)
         print("Image saved to: {}".format(save_path))
+
+    def _get_detection_bridge(self, base_dir=None):
+        if base_dir:
+            return DetectionBridge(base_dir=base_dir)
+        if self._detection_bridge is None:
+            self._detection_bridge = DetectionBridge()
+        return self._detection_bridge
     
