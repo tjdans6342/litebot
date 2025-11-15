@@ -17,8 +17,8 @@ class LaneTrigger:
         self.position_history = deque(maxlen=maxlength)
         
         # 직선 / 곡선 모드 옵션 (speed, position_weight, heading_weight)
-        self.linear_option = (0.1 * 1.5, 0.3 * 1.5, 0.3 * 1.5)
-        self.curved_option = (0.1 * 1.5, 0.7 * 1.5, 0.7 * 1.5)
+        self.linear_option = (0.1 * 1.5, 0.2 * 1.5, 0.2 * 1.5)
+        self.curved_option = (0.1 * 1.5, 0.5 * 1.5, 0.5 * 1.5)
     
     def step(self, obs):
         """
@@ -49,9 +49,13 @@ class LaneTrigger:
         
         if is_linear:
             base_speed, position_weight, heading_weight = self.linear_option
+            # print("linear_mode")
         else:
             base_speed, position_weight, heading_weight = self.curved_option
+            # print("curve_mode")
         
+        # print(position_weight, position_err, heading_weight, heading_err)
+
         combined_err = (position_weight * position_err) + (heading_weight * heading_err)
         return [("update_speed_angular", {"speed": base_speed, "angular": combined_err})]
     

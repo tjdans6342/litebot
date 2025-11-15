@@ -8,7 +8,7 @@
 import numpy as np
 import cv2
 import rospy
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 from litebot.io.camera_interface import CameraInterface
 
@@ -32,7 +32,7 @@ class ROSCamera(CameraInterface):
         # ROS 이미지 토픽 구독
         self.image_sub = rospy.Subscriber(
             self.topic_name, 
-            Image, 
+            CompressedImage, 
             self._image_callback
         )
     
@@ -45,8 +45,7 @@ class ROSCamera(CameraInterface):
         """
         try:
             # ROS 이미지 메시지를 OpenCV 이미지로 변환 (BGR 형식)
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
-            self.latest_frame = cv_image
+            self.latest_frame = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {}".format(e))
             self.latest_frame = None

@@ -21,8 +21,8 @@ class Observer:
             Observer 초기화
         """
         # 차선 감지 파라미터
-        self.nwindows = 9  # Sliding Window 개수
-        self.window_width = 0.1  # 윈도우 너비 (이미지 너비의 비율)
+        self.nwindows = 15  # Sliding Window 개수
+        self.window_width = 150  # 윈도우 너비 (이미지 너비의 비율)
         self.minpix = 50  # 윈도우 내 최소 픽셀 수
     
     def observe_lines(self, image, **kwargs):

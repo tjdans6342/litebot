@@ -22,7 +22,7 @@ def main():
     rate = rospy.Rate(20)
 
     recorder = VideoRecorder()
-    recorder.set_save_path("recordings/ros_run.avi")
+    # recorder.set_save_path("recordings/ros_run.avi")
     recorder.start_recording()
     rospy.loginfo("[LiteBot] Video recording started: %s", recorder.save_path)
 

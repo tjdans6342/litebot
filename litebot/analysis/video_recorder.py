@@ -49,8 +49,10 @@ class VideoRecorder:
             return
         if self.save_path is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.save_path = os.path.join("recordings", f"litebot_{timestamp}.avi")
-        os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
+            self.save_path = os.path.join("recordings", "litebot_{}.avi".format(timestamp))
+        save_dir = os.path.dirname(self.save_path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         self._recording = True
 
     def add_frame(self, frame):

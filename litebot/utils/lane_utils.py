@@ -84,6 +84,9 @@ def lane_detection(hough, nwindows, width, minpix):
     if len(x_list) < 3:
         return {"exist_lines": False}
     
+    # print("x_list:", x_list)
+    # print("y_list:", y_list)
+
     # 2차 다항식 피팅 (y를 독립변수로, x를 종속변수로)
     fit = np.polyfit(y_list, x_list, 2)
     

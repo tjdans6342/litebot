@@ -91,7 +91,7 @@ class ROSController(ControllerInterface):
         # 현재 선속도를 유지한 채 조향만 변경
         self._publish_once(self.current_speed, value)
     
-    def update_speed_angular(self, linear_x, angular_z):
+    def update_speed_angular(self, linear_x, angular_z): # TODO: here to use PID Controller
         """
             선속도와 각속도를 동시에 갱신
             

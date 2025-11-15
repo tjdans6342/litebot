@@ -202,13 +202,19 @@ def get_hough_image(canny_image, slope_threshold=10, min_votes=100, min_line_len
     """
 
     # --- (1) Probabilistic Hough Transform 수행 ---
-    lines = cv2.HoughLinesP(
+    # lines = cv2.HoughLinesP(
+    #     canny_image,
+    #     rho=1,  # 거리 해상도 (픽셀 단위)
+    #     theta=np.pi / 180.0,  # 각도 해상도 (1도)
+    #     threshold=min_votes,  # accumulator 임계값
+    #     minLineLength=min_line_len,  # 최소 선분 길이
+    #     maxLineGap=max_line_gap  # 선분 사이의 최대 간격
+    # )
+    lines = cv2.HoughLines(
         canny_image,
         rho=1,  # 거리 해상도 (픽셀 단위)
         theta=np.pi / 180.0,  # 각도 해상도 (1도)
         threshold=min_votes,  # accumulator 임계값
-        minLineLength=min_line_len,  # 최소 선분 길이
-        maxLineGap=max_line_gap  # 선분 사이의 최대 간격
     )
     h, w = canny_image.shape[:2]
 
@@ -216,24 +222,43 @@ def get_hough_image(canny_image, slope_threshold=10, min_votes=100, min_line_len
     hough_img = np.zeros((h, w), dtype=np.uint8)
 
     if lines is not None:
-        for line in lines:
-            # HoughLinesP는 (x1, y1, x2, y2) 형식으로 반환
-            x1, y1, x2, y2 = line[0]
+        # for line in lines:
+        #     # HoughLinesP는 (x1, y1, x2, y2) 형식으로 반환
+        #     x1, y1, x2, y2 = line[0]
 
-            # --- (3) 기울기 계산 (degree) ---
-            # 수직선 체크 (x1 == x2인 경우)
-            if x1 == x2:
-                slope = 90.0  # 수직선
-            else:
-                # 기울기 계산: atan2를 사용하여 -90~90도 범위로 변환
-                dx = float(x2 - x1)
-                dy = float(y2 - y1)
-                angle = math.degrees(math.atan2(abs(dy), abs(dx)))
-                slope = angle  # 0~90도 범위
+        #     # --- (3) 기울기 계산 (degree) ---
+        #     # 수직선 체크 (x1 == x2인 경우)
+        #     if x1 == x2:
+        #         slope = 90.0  # 수직선
+        #     else:
+        #         # 기울기 계산: atan2를 사용하여 -90~90도 범위로 변환
+        #         dx = float(x2 - x1)
+        #         dy = float(y2 - y1)
+        #         angle = math.degrees(math.atan2(abs(dy), abs(dx)))
+        #         slope = angle  # 0~90도 범위
+
+        #     # --- (4) 수평선 필터링 ---
+        #     # slope_threshold보다 작은 각도는 수평에 가까운 선으로 간주하여 제거
+        #     if slope < slope_threshold:
+        #         continue  # 수평에 가까운 선은 무시
+
+        #     # --- (5) 유효한 선만 그리기 ---
+        #     cv2.line(hough_img, (x1, y1), (x2, y2), 255, 2)
+
+        for line in lines:
+            rho, theta = line[0]
+            a, b = np.cos(theta), np.sin(theta)
+            x0, y0 = a * rho, b * rho
+            x1 = int(x0 + 1000 * (-b))
+            y1 = int(y0 + 1000 * (a))
+            x2 = int(x0 - 1000 * (-b))
+            y2 = int(y0 - 1000 * (a))
+
+            # --- (3) 기울기 계산 (0~90°) ---
+            slope = 90 - abs(math.degrees(math.atan2(b, a)))
 
             # --- (4) 수평선 필터링 ---
-            # slope_threshold보다 작은 각도는 수평에 가까운 선으로 간주하여 제거
-            if slope < slope_threshold:
+            if abs(slope) < slope_threshold or abs(slope - 180) < slope_threshold:
                 continue  # 수평에 가까운 선은 무시
 
             # --- (5) 유효한 선만 그리기 ---

@@ -39,13 +39,13 @@ class ImageProcessor:
 
         # --- Color filter 파라미터 (HLS 범위) ---
         # color_filter 함수는 HLS 기반이므로 HLS 범위 사용
-        self.hls_range = [[(0, 200, 0), (180, 255, 30)]]
+        self.hls_range = [[(0, 140, 0), (180, 255, 255)]]
 
         # --- 이미지 전처리 파라미터 ---
         self.binary_threshold = (20, 255)  # threshold 임계값 (min, max)
 
         # --- Hough Line 파라미터 ---
-        self.hough_threshold = 100  # Hough accumulator 임계값 (min_votes)
+        self.hough_threshold = 50  # Hough accumulator 임계값 (min_votes)
         self.hough_slope_threshold = 10  # 수평선 필터링 임계값 (degree)
         self.hough_min_line_len = 50  # 최소 선분 길이
         self.hough_max_line_gap = 10  # 선분 사이의 최대 간격
