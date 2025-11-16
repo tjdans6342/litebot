@@ -57,13 +57,13 @@ def main():
             # 필요한 경우 다른 감지 추가
         }
         
-        # 4. 트리거 매니저가 적절한 액션을 반환
-        action = litebot.trigger_manager.step(observations)
+        # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
+        action, source = litebot.trigger_manager.step(observations)
         
         # 5. 액션 실행
         if action:
             litebot.action_executor.execute(action)
-            rospy.loginfo("[LiteBot] action=%s value=%s", action[0], action[1])
+            rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
 
         rate.sleep()
 

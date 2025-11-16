@@ -3,8 +3,9 @@
 """
 파일 기반 객체 감지 워커
 
-LiteBot이 저장한 이미지를 to_detect_images_YYYYMMDD_HHMM 폴더에서 읽고
-YOLO 모델로 감지한 뒤 detected_YYYYMMDD_HHMM.log에 JSON 라인을 append 합니다.
+LiteBot이 저장한 이미지를 YYYYMMDD_HHMM_to_detect_images 폴더에서 읽고
+YOLO 모델로 감지한 뒤 YYYYMMDD_HHMM_detected.log에 JSON 라인을 append 합니다.
+또한 바운딩박스/라벨이 그려진 이미지를 YYYYMMDD_HHMM_detected 폴더에 저장합니다.
 """
 from __future__ import annotations
 
@@ -63,17 +64,21 @@ def create_or_load_session(base_dir: Path, reuse: bool) -> Dict[str, str]:
         return json.loads(info_path.read_text(encoding="utf-8"))
 
     session_ts = datetime.now().strftime("%Y%m%d_%H%M")
-    image_dir = _unique_path(base_dir, f"to_detect_images_{session_ts}")
+    image_dir = _unique_path(base_dir, f"{session_ts}_to_detect_images")
     image_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = _unique_path(base_dir, f"detected_{session_ts}.log")
+    log_path = _unique_path(base_dir, f"{session_ts}_detected.log")
     log_path.touch()
+
+    output_dir = _unique_path(base_dir, f"{session_ts}_detected")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     info = {
         "session_id": session_ts,
         "created_at": datetime.utcnow().isoformat() + "Z",
         "image_dir": str(image_dir.resolve()),
         "log_path": str(log_path.resolve()),
+        "output_dir": str(output_dir.resolve()),
     }
     info_path.write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
     return info
@@ -104,12 +109,13 @@ def iter_new_images(image_dir: Path, processed: set) -> Iterable[Path]:
         yield path
 
 
-def run_loop(model: YOLO, device, image_dir: Path, log_path: Path, conf_threshold: float, sleep_sec: float):
+def run_loop(model: YOLO, device, image_dir: Path, log_path: Path, output_dir: Path, conf_threshold: float, sleep_sec: float):
     processed = set()
     class_counts = defaultdict(int)
 
     print(f"[YOLO] Watching directory: {image_dir}")
     print(f"[YOLO] Writing log: {log_path}")
+    print(f"[YOLO] Writing annotated images to: {output_dir}")
     print("[YOLO] Press Ctrl+C to stop\n")
 
     while True:
@@ -128,6 +134,7 @@ def run_loop(model: YOLO, device, image_dir: Path, log_path: Path, conf_threshol
 
                 results = model(img, verbose=False, device=device)
                 per_image_counts = defaultdict(int)
+                annotated = img.copy()
 
                 for r in results:
                     boxes = getattr(r, "boxes", None)
@@ -141,6 +148,16 @@ def run_loop(model: YOLO, device, image_dir: Path, log_path: Path, conf_threshol
                         label = model.names.get(class_id, str(class_id))
                         class_counts[label] += 1
                         per_image_counts[label] += 1
+                        # draw bbox and label on annotated image
+                        xyxy = box.xyxy[0].tolist()
+                        x1, y1, x2, y2 = map(int, xyxy)
+                        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        caption = f"{label} {conf:.2f}"
+                        # background for text
+                        (tw, th), baseline = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                        ty1 = max(y1 - th - 4, 0)
+                        cv2.rectangle(annotated, (x1, ty1), (x1 + tw + 2, ty1 + th + baseline + 2), (0, 255, 0), -1)
+                        cv2.putText(annotated, caption, (x1 + 1, ty1 + th), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
 
                 log_entry = {
                     "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -151,6 +168,13 @@ def run_loop(model: YOLO, device, image_dir: Path, log_path: Path, conf_threshol
                 }
                 with log_path.open("a", encoding="utf-8") as fp:
                     fp.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+                # save annotated image with the same filename
+                out_path = output_dir / img_path.name
+                try:
+                    cv2.imwrite(str(out_path), annotated)
+                except Exception as e:
+                    print(f"[WARN] Failed to write annotated image: {out_path} ({e})")
 
                 processed.add(img_path.name)
                 _print_summary(img_path.name, per_image_counts, class_counts, conf_threshold)
@@ -187,7 +211,8 @@ def main():
 
     image_dir = Path(session_info["image_dir"])
     log_path = Path(session_info["log_path"])
-    run_loop(model, device, image_dir, log_path, args.conf, args.sleep)
+    output_dir = Path(session_info["output_dir"])
+    run_loop(model, device, image_dir, log_path, output_dir, args.conf, args.sleep)
 
 
 if __name__ == "__main__":

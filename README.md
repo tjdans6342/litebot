@@ -69,9 +69,10 @@ litebot/
 ## 객체 감지 파이프라인
 
 - `ai/object_detector.py`  
-  - 실행 시 `detecting/to_detect_images_YYYYMMDD_HHMM` 세션 디렉터리와 `detected_YYYYMMDD_HHMM.log`를 자동 생성합니다.  
+  - 실행 시 `detecting/YYYYMMDD_HHMM_to_detect_images` 세션 디렉터리와 `YYYYMMDD_HHMM_detected.log`를 자동 생성합니다.  
   - LiteBot이 세션 폴더에 저장한 이미지를 주기적으로 스캔하고 YOLO 추론 결과를 로그(JSON Lines)로 남깁니다.  
   - 현재 세션 정보는 `detecting/current_session.json`에 기록되며, 다른 프로세스가 참조할 수 있습니다.
+  - 감지된 바운딩박스/라벨이 그려진 이미지는 `detecting/YYYYMMDD_HHMM_detected` 폴더에 원본 파일명 그대로 저장됩니다.
 
 - `ai/detection_bridge.py`  
   - LiteBot 측에서 `current_session.json`을 읽어 최신 세션을 추적하고, 프레임을 HHMMSS.jpg 형태로 저장하거나 새로 추가된 감지 로그를 스트리밍할 수 있는 헬퍼 클래스입니다.

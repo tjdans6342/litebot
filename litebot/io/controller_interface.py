@@ -14,7 +14,6 @@ class ControllerInterface:
         모든 컨트롤러 클래스는 이 인터페이스를 구현해야 합니다.
         ActionExecutor에서 호출하는 메서드들:
         - brake() - 정지
-        - set_steering(value) - 조향 설정
         - drive_forward_distance(distance, speed) - 거리 기반 전진
         - drive_backward_distance(distance, speed) - 거리 기반 후진
         - drive_circle_distance(distance, speed, angular_velocity) - 거리 기반 원형 주행
@@ -28,17 +27,6 @@ class ControllerInterface:
         """
         raise NotImplementedError("Subclass must implement brake() method")
     
-    def set_steering(self, value):
-        """
-            조향 설정
-            
-            Args:
-                value: 조향 값 (PID 제어 후 값 또는 직접 position 값)
-            
-            ActionExecutor._execute_adjust_steering()에서 호출
-        """
-        raise NotImplementedError("Subclass must implement set_steering() method")
-    
     def update_speed_angular(self, linear_x, angular_z):
         """
             선속도와 각속도를 동시에 업데이트
@@ -47,7 +35,7 @@ class ControllerInterface:
                 linear_x: 선속도 (m/s)
                 angular_z: 각속도 (rad/s)
             
-            ActionExecutor._execute_adjust_steering()에서 호출
+            ActionExecutor._execute_update_speed_angular()에서 호출
         """
         raise NotImplementedError("Subclass must implement update_speed_angular() method")
     
@@ -87,3 +75,15 @@ class ControllerInterface:
             ActionExecutor._execute_drive_circle()에서 호출
         """
         raise NotImplementedError("Subclass must implement drive_circle_distance() method")
+    
+    def rotate_in_place(self, degrees, ang_speed=1.0):
+        """
+            제자리 회전 (선속도 0, 각속도 유지)
+            
+            Args:
+                degrees (float): 회전 각도 (deg). 양수=좌, 음수=우
+                ang_speed (float): 각속도 크기 (rad/s, 양수)
+            
+            ActionExecutor._execute_rotate()에서 호출
+        """
+        raise NotImplementedError("Subclass must implement rotate_in_place() method")

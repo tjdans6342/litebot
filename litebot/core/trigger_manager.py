@@ -36,17 +36,21 @@ class TriggerManager:
                 observations: 관찰 결과 딕셔너리
             
             Returns:
-                tuple: 액션 (command, value)
-                또는 None (액션이 없는 경우)
+                tuple: (action, source) 형태
+                    - action: (command, value)
+                    - source: str, 우세한 트리거 이름 (예: "pothole", "lane", "aruco", "qrcode")
+                액션이 없는 경우: (None, None)
         """
         if self.current_actions:
-            return self.current_actions.pop(0)
+            action = self.current_actions.pop(0)
+            return action, getattr(self, "_last_source", None)
         
         actions = self._collect_actions(observations)
         if actions:
             self.current_actions = actions
-            return self.current_actions.pop(0)
-        return None
+            action = self.current_actions.pop(0)
+            return action, getattr(self, "_last_source", None)
+        return None, None
     
     def _collect_actions(self, observations):
         """
@@ -56,6 +60,8 @@ class TriggerManager:
             actions = trigger.step(observations)
             action_list = self._to_action_list(actions)
             if action_list:
+                # 우세 트리거를 기억해 두고, 액션은 액션만 보관
+                self._last_source = self._trigger_name(trigger)
                 return action_list
         return None
 
@@ -74,4 +80,24 @@ class TriggerManager:
         if isinstance(actions, tuple):
             return [actions]
         return None # 이상한 형태의 액션은 무시
+
+    @staticmethod
+    def _trigger_name(trigger):
+        """
+            트리거 인스턴스에서 식별용 이름을 얻습니다.
+        """
+        name = getattr(trigger, "name", None)
+        if isinstance(name, str) and name:
+            return name
+        cls = trigger.__class__.__name__.lower()
+        # 관용적인 매핑
+        if "pothole" in cls:
+            return "pothole"
+        if "lane" in cls:
+            return "lane"
+        if "aruco" in cls:
+            return "aruco"
+        if "qrcode" in cls or "qr" in cls:
+            return "qrcode"
+        return cls
 

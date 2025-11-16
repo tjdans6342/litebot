@@ -47,7 +47,7 @@ class ROSCamera(CameraInterface):
             # ROS 이미지 메시지를 OpenCV 이미지로 변환 (BGR 형식)
             self.latest_frame = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
         except CvBridgeError as e:
-            rospy.logerr("CvBridge Error: {}".format(e))
+            rospy.logerr("[ROSCamera] CvBridge Error: {}".format(e))
             self.latest_frame = None
     
     def get_frame(self):

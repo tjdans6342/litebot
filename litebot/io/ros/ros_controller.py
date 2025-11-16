@@ -38,7 +38,7 @@ class ROSController(ControllerInterface):
             if self.cmd_vel_pub.get_num_connections() > 0:
                 break
             if rospy.Time.now() > timeout:
-                rospy.logwarn("No subscribers on {} within timeout. Continuing anyway.".format(self.cmd_topic))
+            rospy.logwarn("[ROSController] No subscribers on {} within timeout. Continuing anyway.".format(self.cmd_topic))
                 break
             rospy.sleep(0.05)
     
@@ -76,20 +76,9 @@ class ROSController(ControllerInterface):
         """
             정지
         """
-        rospy.loginfo("Brake command")
+        rospy.loginfo("[ROSController] Brake command")
         self.current_speed = 0.0
         self._publish_once(0.0, 0.0)
-    
-    def set_steering(self, value):
-        """
-            조향 설정
-            
-            Args:
-                value: 조향 값 (rad/s 형태로 가정)
-        """
-        rospy.loginfo("Set steering: {}".format(value))
-        # 현재 선속도를 유지한 채 조향만 변경
-        self._publish_once(self.current_speed, value)
     
     def update_speed_angular(self, linear_x, angular_z): # TODO: here to use PID Controller
         """
@@ -111,10 +100,10 @@ class ROSController(ControllerInterface):
                 speed: 속도 (m/s)
         """
         if distance <= 0.0 or speed <= 0.0:
-            rospy.logwarn("Invalid forward parameters distance={} speed={}".format(distance, speed))
+            rospy.logwarn("[ROSController] Invalid forward parameters distance={} speed={}".format(distance, speed))
             return
         
-        rospy.loginfo("Drive forward: {} m at {} m/s".format(distance, speed))
+        rospy.loginfo("[ROSController] Drive forward: {} m at {} m/s".format(distance, speed))
         duration = distance / speed
         self.current_speed = speed
         self._publish_for_duration(speed, 0.0, duration)
@@ -128,10 +117,10 @@ class ROSController(ControllerInterface):
                 speed: 속도 (m/s, 양수)
         """
         if distance <= 0.0 or speed <= 0.0:
-            rospy.logwarn("Invalid backward parameters distance={} speed={}".format(distance, speed))
+            rospy.logwarn("[ROSController] Invalid backward parameters distance={} speed={}".format(distance, speed))
             return
         
-        rospy.loginfo("Drive backward: {} m at {} m/s".format(distance, speed))
+        rospy.loginfo("[ROSController] Drive backward: {} m at {} m/s".format(distance, speed))
         duration = distance / speed
         # 후진은 음수 선속도
         self.current_speed = -speed
@@ -147,12 +136,29 @@ class ROSController(ControllerInterface):
                 angular_velocity: 각속도 (라디안/초)
         """
         if distance <= 0.0 or speed <= 0.0:
-            rospy.logwarn("Invalid circle parameters distance={} speed={}".format(distance, speed))
+            rospy.logwarn("[ROSController] Invalid circle parameters distance={} speed={}".format(distance, speed))
             return
         
         rospy.loginfo(
-            "Drive circle: {} m at {} m/s with {} rad/s".format(distance, speed, angular_velocity)
+            "[ROSController] Drive circle: {} m at {} m/s with {} rad/s".format(distance, speed, angular_velocity)
         )
         duration = distance / speed
         self.current_speed = speed
         self._publish_for_duration(speed, angular_velocity, duration)
+    
+    def rotate_in_place(self, degrees, ang_speed=1.0):
+        """
+            제자리 회전(선속도 0, 각속도 유지) - 시간 기반 수행
+            
+            Args:
+                degrees (float): 회전할 각도 (deg). 양수: 좌회전, 음수: 우회전
+                ang_speed (float): 각속도 크기 (rad/s, 양수)
+        """
+        if ang_speed <= 0.0:
+            rospy.logwarn("[ROSController] rotate_in_place: ang_speed must be positive")
+            return
+        radians = abs(degrees) * 3.141592653589793 / 180.0
+        duration = radians / ang_speed if ang_speed > 0.0 else 0.0
+        angular = ang_speed if degrees >= 0.0 else -ang_speed
+        rospy.loginfo("[ROSController] Rotate in place: {} deg at {} rad/s ({} s)".format(degrees, ang_speed, duration))
+        self._publish_for_duration(0.0, angular, duration)

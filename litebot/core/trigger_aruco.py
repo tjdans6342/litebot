@@ -63,6 +63,7 @@ class ArucoTrigger:
         }
         self.last_trigger_times = {}
         self.seen_counts = {}
+        self.last_detected_ids = []  # 최근 감지된 마커 ID 히스토리(간단 저장)
     
     def step(self, obs):
         """
@@ -95,6 +96,7 @@ class ArucoTrigger:
         actions = self._get_actions(marker_id, nth)
         if actions:
             self.last_trigger_times[marker_id] = now
+            self.last_detected_ids.append(marker_id)
             return actions
         return None
     
@@ -107,4 +109,12 @@ class ArucoTrigger:
             if nth in rule:
                 return list(rule[nth])
         return None
+
+    def get_last_id(self):
+        """
+            가장 최근 감지되어 트리거된 마커 ID를 반환합니다. 없으면 None.
+        """
+        if not self.last_detected_ids:
+            return None
+        return self.last_detected_ids[-1]
 

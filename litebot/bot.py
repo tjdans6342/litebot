@@ -70,9 +70,10 @@ class LiteBot:
         5. 액션 실행
         
         Returns:
-            tuple: (observations, action)
+            tuple: (observations, action, source)
                 - observations: 관찰 결과 딕셔너리
                 - action: 실행된 액션 또는 None
+                - source: 우세 트리거명 또는 None
         """
         # 1. 프레임 캡처
         self.frame = self.camera.get_frame()
@@ -97,12 +98,12 @@ class LiteBot:
             # 필요한 경우 다른 감지 추가
         }
         
-        # 4. 트리거 매니저가 적절한 액션을 반환
-        action = self.trigger_manager.step(observations)
+        # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
+        action, source = self.trigger_manager.step(observations)
         
         # 5. 액션 실행
         if action:
             self.action_executor.execute(action)
         
-        return observations, action
+        return observations, action, source
 
