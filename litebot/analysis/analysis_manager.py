@@ -46,7 +46,7 @@ class AnalysisManager:
         frame_idx = 0
         success, frame = cap.read()
         while success:
-            filename = f"{prefix}_{frame_idx:05d}{image_ext}"
+            filename = "{}_{:05d}{}".format(prefix, frame_idx, image_ext)
             save_path = os.path.join(output_dir, filename)
             cv2.imwrite(save_path, frame)
             saved_paths.append(save_path)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         # 각 프레임마다 텍스트(프레임 번호) 표시
         cv2.putText(
             frame,
-            f"Frame {i}",
+            "Frame {}".format(i),
             (50, 180),  # 텍스트 위치
             cv2.FONT_HERSHEY_SIMPLEX,
             1.5,       # 폰트 크기

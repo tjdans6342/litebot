@@ -27,6 +27,9 @@ def main():
         print("[ROS Camera HW] rospy unavailable. Run in ROS environment.")
         sys.exit(1)
 
+    rospy.init_node("ros_camera_run", anonymous=False)
+
+
     cam = ROSCamera()  # 기본 토픽: /usb_cam/image_raw/compressed
     print("[ROS Camera HW] Subscribed to {}".format(cam.topic_name))
 

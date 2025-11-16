@@ -21,7 +21,7 @@ def main():
     rate = rospy.Rate(20)
 
     while not rospy.is_shutdown():
-        observations, action = bot.step()
+        observations, action, source = bot.step()
 
         if observations is None:
             rate.sleep()

@@ -58,25 +58,29 @@ def main():
         # 5. 액션 실행: 우세 트리거가 아루코면 캡처, 그 외는 정상 실행
         if action:
             cmd, val = action
-            if source == "aruco":
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                # 최근 감지된 아루코 ID를 트리거에서 조회해 파일명에 포함
-                aruco_tr = None
-                try:
-                    for t in litebot.trigger_manager.triggers:
-                        if t.__class__.__name__ == "ArucoTrigger":
-                            aruco_tr = t
-                            break
-                except Exception:
-                    aruco_tr = None
-                marker_id = aruco_tr.get_last_id() if aruco_tr and hasattr(aruco_tr, "get_last_id") else None
-                suffix = "aruco_{}".format(marker_id) if marker_id is not None else "aruco"
-                path = os.path.join(save_dir, "{}_{}.jpg".format(suffix, ts))
-                litebot.action_executor.execute(("capture", {"image": litebot.frame, "save_path": path}))
-                rospy.loginfo("[LiteBot] aruco captured: %s", path)
-            else:
-                litebot.action_executor.execute(action)
-                rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
+            if source != 'lane':
+                    rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
+            litebot.action_executor.execute(action)
+            # if source == "aruco":
+            #     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            #     # 최근 감지된 아루코 ID를 트리거에서 조회해 파일명에 포함
+            #     aruco_tr = None
+            #     try:
+            #         for t in litebot.trigger_manager.triggers:
+            #             if t.__class__.__name__ == "ArucoTrigger":
+            #                 aruco_tr = t
+            #                 break
+            #     except Exception:
+            #         aruco_tr = None
+            #     marker_id = aruco_tr.get_last_id() if aruco_tr and hasattr(aruco_tr, "get_last_id") else None
+            #     suffix = "aruco_{}".format(marker_id) if marker_id is not None else "aruco"
+            #     path = os.path.join(save_dir, "{}_{}.jpg".format(suffix, ts))
+            #     litebot.action_executor.execute(("capture", {"image": litebot.frame, "save_path": path}))
+            #     rospy.loginfo("[LiteBot] aruco captured: %s", path)
+            # else:
+            #     litebot.action_executor.execute(action)
+            #     if source != 'lane':
+            #         rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
 
         rate.sleep()
 

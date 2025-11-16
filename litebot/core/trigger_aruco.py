@@ -21,7 +21,7 @@ class ArucoTrigger:
                     ("drive_forward", (0.25, 0.2111)), 
                     ("rotate", -90.0), 
                     ("rotate", 90.0),
-                    ("capture", {"mode": "object_detection", "suffix": "aruco0_1"}),
+                    # ("capture", {"mode": "object_detection", "suffix": "aruco0_1"}),
                 ],
             },
             2: {

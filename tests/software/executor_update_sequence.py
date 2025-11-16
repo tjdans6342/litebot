@@ -7,6 +7,7 @@ Software 테스트 - ActionExecutor 경유 v-ω 업데이트 시퀀스
 from __future__ import print_function
 
 import time
+import rospy
 
 from litebot.action.action_executor import ActionExecutor
 
@@ -44,6 +45,7 @@ def main():
     HOLD_SEC = 2.0
     LOOPS = int(HOLD_SEC / PERIOD)
 
+    rospy.init_node("executor_update_sequence", anonymous=False)
     ctrl = DummyController()
     ex = ActionExecutor(ctrl)
 

@@ -21,6 +21,8 @@ def main():
         print("[ROS Executor HW] rospy unavailable. Run in ROS environment.")
         sys.exit(1)
 
+    rospy.init_node("ros_executor_run", anonymous=False)
+
     # 파라미터
     SPEED = 0.25
     CIRCLE_DIAMETER = 0.4

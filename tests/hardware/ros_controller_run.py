@@ -20,6 +20,9 @@ def main():
         print("[ROS Controller HW] rospy unavailable. Run in ROS environment.")
         sys.exit(1)
 
+    rospy.init_node("ros_controller_run", anonymous=False)
+
+
     # 파라미터
     FWD_DIST = 1.0
     BWD_DIST = 0.5

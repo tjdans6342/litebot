@@ -80,7 +80,7 @@ class LiteBot:
         
         # 프레임이 없으면 처리 중단
         if self.frame is None:
-            return None, None
+            return None, None, None
         
         # 2. 이미지 처리
         self.images = self.image_processor.get_images(self.frame)

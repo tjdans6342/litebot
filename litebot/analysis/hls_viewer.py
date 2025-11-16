@@ -90,7 +90,7 @@ def _get_range_from_trackbars():
 
 def _format_mean_text(mean_vals, pixel_ratio):
     h, l, s = mean_vals
-    return f"H:{h:.1f}  L:{l:.1f}  S:{s:.1f}  Pixels:{pixel_ratio*100:.1f}%"
+    return "H:{:.1f}  L:{:.1f}  S:{:.1f}  Pixels:{:.1f}%".format(h, l, s, pixel_ratio*100)
 
 
 def _draw_overlay(image, text):
@@ -132,11 +132,11 @@ def main():
     video_path = args.video
 
     if not os.path.exists(video_path):
-        raise FileNotFoundError(f"Video not found: {video_path}")
+        raise FileNotFoundError("Video not found: {}".format(video_path))
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise IOError(f"Failed to open video: {video_path}")
+        raise IOError("Failed to open video: {}".format(video_path))
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     _create_trackbars(total_frames)

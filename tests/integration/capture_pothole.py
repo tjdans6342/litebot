@@ -48,8 +48,8 @@ def main():
         # 3. 감지 수행 (필요 항목만 추가)
         observations = {
             "lane": litebot.observer.observe_lines(litebot.images.get("hough", litebot.frame)),
+            "pothole": litebot.observer.observe_pothole(litebot.images.get("binary", litebot.frame)),
             # 예: pothole 감지를 별도 추가하고 싶으면 아래처럼 확장
-            # "pothole": litebot.observer.observe_pothole(litebot.images.get("binary", litebot.frame)),
         }
 
         # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
@@ -58,14 +58,18 @@ def main():
         # 5. 액션 실행: 우세 트리거가 포트홀이면 캡처, 그 외는 정상 실행
         if action:
             cmd, val = action
-            if source == "pothole":
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                path = os.path.join(save_dir, "pothole_{}.jpg".format(ts))
-                litebot.action_executor.execute(("capture", {"image": litebot.frame, "save_path": path}))
-                rospy.loginfo("[LiteBot] pothole captured: %s", path)
-            else:
-                litebot.action_executor.execute(action)
+            litebot.action_executor.execute(action)
+            if source != 'lane':
                 rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
+            # if source == "pothole":
+            #     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            #     path = os.path.join(save_dir, "pothole_{}.jpg".format(ts))
+            #     litebot.action_executor.execute(("capture", {"image": litebot.frame, "save_path": path}))
+            #     rospy.loginfo("[LiteBot] pothole captured: %s", path)
+            # else:
+            #     litebot.action_executor.execute(action)
+            #     if source != 'lane':
+            #         rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
 
         rate.sleep()
 

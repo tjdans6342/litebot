@@ -7,6 +7,7 @@ Software 테스트 - ActionExecutor 경유 모션 시퀀스
 from __future__ import print_function
 
 import time
+import rospy
 
 from litebot.action.action_executor import ActionExecutor
 
@@ -42,6 +43,7 @@ def main():
     DIA = 0.4
     DIST = 1.0
 
+    rospy.init_node("executor_motion_sequence", anonymous=False)
     ctrl = DummyController()
     ex = ActionExecutor(ctrl)
 

@@ -19,8 +19,8 @@ class PotholeTrigger:
         self.last_trigger_time = 0.0
         self.seen_count = 0
         self.rules = {
-            1: [("drive_backward", (0.02, 0.15)), ("rotate", -90.0), ("drive_circle", (0.5 * 0.35 * math.pi, 0.1, 0.35, "left")), ("rotate", -90.0)],
-            2: [("drive_backward", (0.02, 0.15)), ("rotate", -90.0), ("drive_circle", (0.5 * 0.35 * math.pi, 0.1, 0.35, "left")), ("rotate", -90.0)],
+            1: [("drive_backward", (0.08, 0.15)), ("rotate", -90.0), ("drive_circle", (0.5 * 0.35 * math.pi, 0.1, 0.35, "left")), ("rotate", -90.0)],
+            2: [("drive_backward", (0.08, 0.15)), ("rotate", -90.0), ("drive_circle", (0.5 * 0.35 * math.pi, 0.1, 0.35, "left")), ("rotate", -90.0)],
         }
         self.default_actions = [("stop", None)]
     

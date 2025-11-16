@@ -38,7 +38,7 @@ class ROSController(ControllerInterface):
             if self.cmd_vel_pub.get_num_connections() > 0:
                 break
             if rospy.Time.now() > timeout:
-            rospy.logwarn("[ROSController] No subscribers on {} within timeout. Continuing anyway.".format(self.cmd_topic))
+                rospy.logwarn("[ROSController] No subscribers on {} within timeout. Continuing anyway.".format(self.cmd_topic))
                 break
             rospy.sleep(0.05)
     

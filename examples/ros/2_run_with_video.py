@@ -14,6 +14,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from litebot.bot import LiteBot  # noqa: E402
 from litebot.analysis.video_recorder import VideoRecorder  # noqa: E402
+from litebot.analysis.analysis_manager import AnalysisManager
 
 
 def main():
@@ -28,11 +29,13 @@ def main():
 
     try:
         while not rospy.is_shutdown():
-            observations, action = bot.step()
+            observations, action, source = bot.step()
 
             if bot.frame is not None:
+                manager = AnalysisManager()
+                grid_image = manager.make_images_grid(list(bot.images.values()))
                 try:
-                    recorder.add_frame(bot.frame)
+                    recorder.add_frame(grid_image)
                 except Exception as exc:
                     rospy.logwarn("[LiteBot] failed to add frame to recorder: %s", exc)
 

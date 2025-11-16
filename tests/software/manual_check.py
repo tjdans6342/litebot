@@ -9,6 +9,7 @@ from __future__ import print_function
 import time
 import os
 import numpy as np
+import rospy
 
 from litebot.action.action_executor import ActionExecutor
 
@@ -45,6 +46,7 @@ class DummyController(object):
 
 
 def main():
+    rospy.init_node("manual_check", anonymous=False)
     ctrl = DummyController()
     ex = ActionExecutor(ctrl)
 
