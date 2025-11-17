@@ -50,7 +50,7 @@ class LiteBot:
         self.fire_detector = FireDetector()
         
         # TriggerManager 초기화
-        self.trigger_manager = TriggerManager()
+        self.trigger_manager = TriggerManager(self.controller)
         
         # ActionExecutor 초기화
         self.action_executor = ActionExecutor(self.controller)
@@ -99,8 +99,8 @@ class LiteBot:
         if self.images is None:
             self.images = {}
         
-        # 3. 화재 감지 파일 확인 (건물 번호 수신)
-        self.fire_detector.set()
+        # # 3. 화재 감지 파일 확인 (건물 번호 수신)
+        # self.fire_detector.set()
         
         # 4. 감지 수행
         observations = {

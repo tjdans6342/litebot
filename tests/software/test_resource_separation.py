@@ -106,7 +106,6 @@ class DummyController(object):
 def test_motor_resource_busy():
     """motor 리소스 busy 시 다른 motor 액션 무시 확인"""
     print("\n=== Test 1: Motor resource busy - 다른 motor 액션 무시 ===")
-    rospy.init_node("test_resource_separation", anonymous=False)
     ctrl = DummyController()
     ex = ActionExecutor(ctrl)
     
@@ -157,7 +156,6 @@ def test_motor_resource_busy():
 def test_pid_reset_on_motor_action():
     """motor 액션에서 PID 리셋 확인"""
     print("\n=== Test 2: PID reset on motor actions ===")
-    rospy.init_node("test_pid_reset", anonymous=False)
     ctrl = DummyController()
     ex = ActionExecutor(ctrl)
     
@@ -183,6 +181,8 @@ def test_pid_reset_on_motor_action():
 
 
 def main():
+    rospy.init_node("test_pid_reset", anonymous=False)
+
     """모든 테스트 실행"""
     print("=" * 60)
     print("ActionExecutor 리소스 타입 분리 및 비동기 액션 테스트")

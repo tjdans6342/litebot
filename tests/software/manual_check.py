@@ -44,6 +44,14 @@ class DummyController(object):
         duration = abs(degrees) * 3.141592653589793 / 180.0 / max(ang_speed, 1e-6)
         time.sleep(min(duration, 1.0))
 
+    def is_action_running(self):
+        print("[DummyController] is action running")
+
+    def execute_async(self, action):
+        print("[DummyController] exectue async")
+
+
+
 
 def main():
     rospy.init_node("manual_check", anonymous=False)

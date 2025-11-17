@@ -16,7 +16,7 @@ class TriggerManager:
         여러 Trigger들을 관리하고 우선순위에 따라 액션을 반환하는 매니저
     """
     
-    def __init__(self):
+    def __init__(self, controller):
         """
             TriggerManager 초기화
         """
@@ -27,6 +27,8 @@ class TriggerManager:
             QrcodeTrigger()
         ]
         self.current_actions = []
+
+        self.controller = controller
     
     def step(self, observations):
         """
@@ -41,6 +43,11 @@ class TriggerManager:
                     - source: str, 우세한 트리거 이름 (예: "pothole", "lane", "aruco", "qrcode")
                 액션이 없는 경우: (None, None)
         """
+        # TODO: if action is executing, self.current_actions are must conserve!!!
+
+        if self.controller.is_action_running(): # tmp
+            return None, None
+
         if self.current_actions:
             action = self.current_actions.pop(0)
             return action, getattr(self, "_last_source", None)

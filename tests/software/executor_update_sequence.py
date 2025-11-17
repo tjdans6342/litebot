@@ -37,6 +37,15 @@ class DummyController(object):
     def rotate_in_place(self, degrees, ang_speed=1.0):
         pass
 
+    def is_action_running(self):
+        print("[DummyController] is action running")
+
+    def execute_async(self, action):
+        print("[DummyController] exectue async")
+
+
+
+
 
 def main():
     SPEED = 0.25

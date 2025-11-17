@@ -32,10 +32,11 @@ def main():
             observations, action, source = bot.step()
 
             if bot.frame is not None:
-                manager = AnalysisManager()
-                grid_image = manager.make_images_grid(list(bot.images.values()))
+            #     manager = AnalysisManager()
+            #     grid_image = manager.make_images_grid(list(bot.images.values()))
                 try:
-                    recorder.add_frame(grid_image)
+                    # recorder.add_frame(grid_image)
+                    recorder.add_frame(bot.images['original'])
                 except Exception as exc:
                     rospy.logwarn("[LiteBot] failed to add frame to recorder: %s", exc)
 
@@ -43,7 +44,7 @@ def main():
                 rate.sleep()
                 continue
 
-            if action:
+            if action and source != 'lane':
                 rospy.loginfo("[LiteBot] action=%s value=%s", action[0], action[1])
 
             rate.sleep()

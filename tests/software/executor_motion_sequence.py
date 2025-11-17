@@ -35,6 +35,15 @@ class DummyController(object):
         print("[DummyController] rotate {} deg @{} rad/s".format(degrees, ang_speed))
         time.sleep(0.5)
 
+    def is_action_running(self):
+        print("[DummyController] is action running")
+
+    def execute_async(self, action):
+        print("[DummyController] exectue async")
+
+
+
+
 
 def main():
     FWD_DIST = 1.0

@@ -39,7 +39,7 @@ class ImageProcessor:
 
         # --- Color filter 파라미터 (HLS 범위) ---
         # color_filter 함수는 HLS 기반이므로 HLS 범위 사용
-        self.hls_range = [[(0, 160, 0), (180, 255, 255)]]
+        self.hls_range = [[(0, 150, 0), (180, 255, 255)]]
 
         # --- 이미지 전처리 파라미터 ---
         self.binary_threshold = (20, 255)  # threshold 임계값 (min, max)
@@ -104,11 +104,11 @@ class ImageProcessor:
             cv2.THRESH_BINARY
         )
         
-        # 5-1. 연결된 컴포넌트 분석: 가장 큰 집합(도로)만 남기기
-        binary_img, component_count, largest_size = image_utils.get_largest_component(
-            binary_img, 
-            connectivity=8
-        )
+        # # 5-1. 연결된 컴포넌트 분석: 가장 큰 집합(도로)만 남기기
+        # binary_img, component_count, largest_size = image_utils.get_largest_component(
+        #     binary_img, 
+        #     connectivity=8
+        # )
         
         # 6. Canny edge detection (고정값: low=10, high=100)
         canny_img = cv2.Canny(binary_img, 10, 100)
