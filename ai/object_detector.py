@@ -34,7 +34,7 @@ SESSION_INFO_FILENAME = "current_session.json"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="LiteBot 파일 기반 객체 감지기")
-    parser.add_argument("--base-dir", default="detecting", help="세션/로그를 저장할 기본 디렉터리")
+    parser.add_argument("--base-dir", default="detects", help="세션/로그를 저장할 기본 디렉터리")
     parser.add_argument("--model", default="config/best_rokaf.pt", help="YOLO 가중치 경로")
     parser.add_argument("--conf", type=float, default=0.3, help="confidence threshold")
     parser.add_argument("--sleep", type=float, default=1.0, help="폴링 주기 (초)")
@@ -64,13 +64,18 @@ def create_or_load_session(base_dir: Path, reuse: bool) -> Dict[str, str]:
         return json.loads(info_path.read_text(encoding="utf-8"))
 
     session_ts = datetime.now().strftime("%Y%m%d_%H%M")
-    image_dir = _unique_path(base_dir, f"{session_ts}_to_detect_images")
+    # 세션 폴더 생성 (날짜_시간 형식)
+    session_dir = _unique_path(base_dir, session_ts)
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # 세션 폴더 안에 하위 폴더들 생성
+    image_dir = session_dir / "to_detect_images"
     image_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = _unique_path(base_dir, f"{session_ts}_detected.log")
+    log_path = session_dir / "detected.log"
     log_path.touch()
 
-    output_dir = _unique_path(base_dir, f"{session_ts}_detected")
+    output_dir = session_dir / "detected"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     info = {

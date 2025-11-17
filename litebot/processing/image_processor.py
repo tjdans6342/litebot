@@ -56,7 +56,7 @@ class ImageProcessor:
         
         Pipeline:
             Original → BEV → color_filter → Gray Scale → GaussianBlur 
-            → threshold → Canny → get_hough_image
+            → threshold → largest_component (8방향 연결성 분석) → Canny → get_hough_image
         
         Args:
             frame: 카메라에서 받은 원본 프레임
@@ -102,6 +102,12 @@ class ImageProcessor:
             self.binary_threshold[0], 
             self.binary_threshold[1], 
             cv2.THRESH_BINARY
+        )
+        
+        # 5-1. 연결된 컴포넌트 분석: 가장 큰 집합(도로)만 남기기
+        binary_img, component_count, largest_size = image_utils.get_largest_component(
+            binary_img, 
+            connectivity=8
         )
         
         # 6. Canny edge detection (고정값: low=10, high=100)

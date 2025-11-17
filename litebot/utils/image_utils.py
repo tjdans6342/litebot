@@ -265,3 +265,60 @@ def get_hough_image(canny_image, slope_threshold=10, min_votes=100, min_line_len
             cv2.line(hough_img, (x1, y1), (x2, y2), 255, 2)
 
     return hough_img
+
+
+def get_largest_component(binary_image, connectivity=8):
+    """
+        8방향(또는 4방향) 연결성을 사용하여 연결된 컴포넌트를 분석하고,
+        가장 큰 컴포넌트만 남기는 함수.
+        
+        도로처럼 뭉텅이로 골라지는 영역에서 노이즈를 제거하는 데 유용합니다.
+        
+        Parameters
+        ----------
+        binary_image : np.ndarray
+            바이너리 이미지 (0 또는 255)
+        connectivity : int, default=8
+            8 → 8방향 연결성 (상하좌우 + 대각선)
+            4 → 4방향 연결성 (상하좌우만)
+        
+        Returns
+        -------
+        result : np.ndarray
+            가장 큰 컴포넌트만 남긴 바이너리 이미지 (0 또는 255)
+        component_count : int
+            발견된 컴포넌트 개수 (배경 포함)
+        largest_size : int
+            가장 큰 컴포넌트의 픽셀 개수
+    """
+    if binary_image is None:
+        return None, 0, 0
+    
+    # 연결된 컴포넌트 분석
+    # num_labels: 컴포넌트 개수 (배경 포함, 0번이 배경)
+    # labels: 각 픽셀의 컴포넌트 ID
+    # stats: 각 컴포넌트의 통계 정보 [x, y, width, height, area]
+    # centroids: 각 컴포넌트의 중심점
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        binary_image, 
+        connectivity=connectivity
+    )
+    
+    if num_labels <= 1:
+        # 배경만 있거나 컴포넌트가 없는 경우
+        return np.zeros_like(binary_image), 0, 0
+    
+    # 배경(0번)을 제외한 컴포넌트들의 크기 비교
+    # stats[0]은 배경이므로 stats[1:]부터 비교
+    component_sizes = stats[1:, cv2.CC_STAT_AREA]  # 각 컴포넌트의 픽셀 개수
+    
+    # 가장 큰 컴포넌트의 인덱스 찾기 (stats 인덱스 기준, 배경 제외)
+    largest_idx = np.argmax(component_sizes) + 1  # +1은 배경(0번) 제외
+    
+    largest_size = component_sizes[largest_idx - 1]
+    
+    # 가장 큰 컴포넌트만 남기기
+    result = np.zeros_like(binary_image)
+    result[labels == largest_idx] = 255
+    
+    return result, num_labels, largest_size

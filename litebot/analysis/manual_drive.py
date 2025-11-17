@@ -186,3 +186,42 @@ if __name__ == "__main__":
     except rospy.ROSInterruptException:
         pass
 
+"""
+실행 방법 예시:
+
+1. 기본 실행 (기본값 사용):
+   python -m litebot.analysis.manual_drive
+
+2. 전진/후진 속도 조절 (기본값: 0.25 m/s):
+   python -m litebot.analysis.manual_drive --linear 0.3
+
+3. 회전 속도 조절 (기본값: 1.0 rad/s):
+   python -m litebot.analysis.manual_drive --angular 1.5
+
+4. 명령 퍼블리시 주파수 조절 (기본값: 20 Hz):
+   python -m litebot.analysis.manual_drive --hz 30
+
+5. 캡처 이미지 저장 경로 지정 (기본값: recordings/manual_capture):
+   python -m litebot.analysis.manual_drive --capture-dir recordings/my_captures
+
+6. 캡처 쿨다운 시간 조절 (기본값: 1.0 초):
+   python -m litebot.analysis.manual_drive --capture-cooldown 0.5
+
+7. 여러 옵션 조합:
+   python -m litebot.analysis.manual_drive --linear 0.3 --angular 1.5 --hz 30
+
+8. 직접 파일 실행 (PYTHONPATH 설정 후):
+   python litebot/analysis/manual_drive.py --linear 0.25
+
+주의사항:
+- 실행 전에 roscore가 실행 중이어야 합니다.
+- pynput 라이브러리가 설치되어 있어야 합니다 (pip install pynput).
+- ROS 환경이 제대로 설정되어 있어야 합니다.
+
+조작 방법:
+- ↑/↓ : 전진/후진
+- ←/→ : 좌회전/우회전
+- Space : 즉시 정지
+- C : 프레임 캡처 (쿨다운 적용)
+- ESC : 종료
+"""

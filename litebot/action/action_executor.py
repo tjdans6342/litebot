@@ -14,6 +14,22 @@ from litebot.io.tiki.tiki_controller import TikiController
 from litebot.core.control.pid_controller import PIDController
 
 
+# 리소스 타입별 액션 분류
+RESOURCE_TYPES = {
+    "motor": [
+        "drive_forward", "drive_backward", "drive_circle",
+        "rotate", "stop", "update_speed_angular"
+    ],
+    "led": [
+        "led_on", "led_off", "led_blink", "set_led"
+    ],
+    "oled": [
+        "log", "log_clear"
+    ],
+    # 센서 읽기는 비동기 액션이 아니므로 제외 (읽기 전용)
+}
+
+
 class ActionExecutor:
     """
         액션을 받아서 실제 로봇 제어 명령을 실행하는 클래스
@@ -40,6 +56,26 @@ class ActionExecutor:
 
         # ----- 검출/내부 -----
         self._detection_bridge = None
+        
+        # ----- 리소스별 executor (확장 가능) -----
+        # 나중에 LED, OLED executor 추가 시 사용
+        self.led_executor = None
+        self.oled_executor = None
+    
+    def _get_resource_type(self, cmd):
+        """
+            액션 명령이 사용하는 리소스 타입 반환
+        
+            Args:
+                cmd: 액션 명령 문자열
+            
+            Returns:
+                str: 리소스 타입 ("motor", "led", "oled" 등) 또는 None
+        """
+        for resource_type, actions in RESOURCE_TYPES.items():
+            if cmd in actions:
+                return resource_type
+        return None  # 리소스가 필요 없는 액션 (capture, qr_command 등)
     
     def execute(self, action):
         """
@@ -50,6 +86,14 @@ class ActionExecutor:
                     # action[0]: 명령어 문자열 (예: "stop", "drive_forward", "drive_backward", "drive_circle", "rotate", "update_speed_angular", "qr_command", "capture")
                     # action[1]: 해당 명령에 필요한 값 (명령별로 포맷 다름)
                     - value: 액션에 필요한 값
+            
+            Note:
+                capture, qr_command는 즉시 실행됩니다 (리소스와 독립).
+                리소스 타입별로 실행 제어:
+                - motor: drive_forward, rotate, stop, update_speed_angular 등
+                - led: led_on, led_off, set_led 등 (확장 가능)
+                - oled: log, log_clear 등 (확장 가능)
+                같은 리소스 타입의 액션이 실행 중이면 무시됩니다 (큐 방식).
         """
         if not action:
             return
@@ -59,13 +103,42 @@ class ActionExecutor:
         # cmd에 따라 해당 메서드 호출
         method_name = "_execute_{}".format(cmd)
 
-        # 속도/각속도 업데이트가 아닌 다른 액션이 들어오면 각속도 PID 리셋
-        if method_name != "_execute_update_speed_angular" and self.angular_pid is not None:
-            self.angular_pid.reset()
+        # capture, qr_command는 리소스와 독립적인 액션 (비동기 액션 체크 없이 항상 실행)
+        non_controller_actions = ["capture", "qr_command"]
+        
+        # 리소스 타입 확인
+        resource_type = self._get_resource_type(cmd)
+        
+        # 리소스 타입별 실행 제어
+        if resource_type:
+            if resource_type == "motor":
+                # 모터 리소스는 controller로 체크
+                if self.controller.is_action_running():
+                    print("[ActionExecutor] Motor resource busy, ignoring: {}".format(cmd))
+                    return
+                
+                # motor 리소스 액션에서 update_speed_angular가 아닌 경우 PID 리셋
+                if method_name != "_execute_update_speed_angular" and self.angular_pid is not None:
+                    self.angular_pid.reset()
+            elif resource_type == "led":
+                # LED 리소스는 별도 executor로 체크 (나중에 확장 시)
+                if self.led_executor and hasattr(self.led_executor, "is_busy"):
+                    if self.led_executor.is_busy():
+                        print("[ActionExecutor] LED resource busy, ignoring: {}".format(cmd))
+                        return
+            elif resource_type == "oled":
+                # OLED 리소스는 별도 executor로 체크 (나중에 확장 시)
+                if self.oled_executor and hasattr(self.oled_executor, "is_busy"):
+                    if self.oled_executor.is_busy():
+                        print("[ActionExecutor] OLED resource busy, ignoring: {}".format(cmd))
+                        return
+        elif cmd not in non_controller_actions:
+            # 리소스 타입이 없고 non_controller_actions도 아니면 경고
+            print("[ActionExecutor] Unknown action or resource type: {}".format(cmd))
 
         if hasattr(self, method_name):
             method = getattr(self, method_name)
-            method(value)
+            method(value) # 실제 액션 실행 메서드 호출
         else:
             print("[ActionExecutor] Unknown action command: {}".format(cmd))
     
@@ -103,7 +176,7 @@ class ActionExecutor:
     
     def _execute_drive_forward(self, value):
         """
-            전진 액션 실행
+            전진 액션 실행 (비동기)
             
             Args:
                 value: (distance, speed) 형태의 튜플
@@ -120,12 +193,12 @@ class ActionExecutor:
             print("[ActionExecutor] Speed must be positive")
             return
         
-        # 컨트롤러 타입과 무관하게 동일 인터페이스로 위임
-        self.controller.drive_forward_distance(distance, speed)
+        # 비동기로 실행 (즉시 반환)
+        self.controller.execute_async(("drive_forward", (distance, speed)))
 
     def _execute_drive_backward(self, value):
         """
-            후진 액션 실행
+            후진 액션 실행 (비동기)
             
             Args:
                 value: (distance, speed) 형태의 튜플
@@ -142,8 +215,8 @@ class ActionExecutor:
             print("[ActionExecutor] Speed must be positive")
             return
         
-        # 컨트롤러 타입과 무관하게 동일 인터페이스로 위임
-        self.controller.drive_backward_distance(distance, speed)
+        # 비동기로 실행 (즉시 반환)
+        self.controller.execute_async(("drive_backward", (distance, speed)))
 
     def _execute_drive_circle(self, value):
         """
@@ -192,8 +265,8 @@ class ActionExecutor:
         if arrow == 'right':
             angular_velocity = -angular_velocity
         
-        # 컨트롤러 타입과 무관하게 동일 인터페이스로 위임
-        self.controller.drive_circle_distance(distance, speed, angular_velocity)
+        # 비동기로 실행 (즉시 반환)
+        self.controller.execute_async(("drive_circle", (distance, speed, angular_velocity)))
     
     def _execute_rotate(self, value):
         """
@@ -210,8 +283,9 @@ class ActionExecutor:
             self._execute_stop(None)
             return
         
-        # 제자리 회전: 시간 기반으로 컨트롤러에 위임 (컨트롤러 공통 인터페이스)
-        self.controller.rotate_in_place(value, ang_speed=self.rotate_ang_speed)
+        # 비동기로 실행 (즉시 반환)
+        # rotate 명령은 (degrees, ang_speed) 형태로 전달
+        self.controller.execute_async(("rotate", (value, self.rotate_ang_speed)))
 
     # ========== 기타 액션 메서드 ==========
     
@@ -277,7 +351,7 @@ class ActionExecutor:
         #     "image": frame,              # numpy ndarray
         #     "mode": "object_detection",  # 이 값이 있어야 브리지로 전달
         #     "suffix": "pothole",         # 선택: 파일명 끝에 붙는 태그
-        #     "base_dir": "detecting"      # 선택: 세션 디렉터리 위치
+        #     "base_dir": "detects"      # 선택: 세션 디렉터리 위치
         # }
         if mode == "object_detection":
             try:

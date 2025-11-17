@@ -12,6 +12,7 @@ from litebot.io.tiki.tiki_controller import TikiController
 from litebot.processing.image_processor import ImageProcessor
 from litebot.core.observer import Observer
 from litebot.core.trigger_manager import TriggerManager
+from litebot.core.fire_detector import FireDetector
 from litebot.action.action_executor import ActionExecutor
 
 
@@ -45,6 +46,9 @@ class LiteBot:
         # Observer 초기화
         self.observer = Observer()
         
+        # FireDetector 초기화 (파일 기반)
+        self.fire_detector = FireDetector()
+        
         # TriggerManager 초기화
         self.trigger_manager = TriggerManager()
         
@@ -67,7 +71,13 @@ class LiteBot:
         2. 이미지 처리
         3. 감지 수행
         4. 트리거 매니저가 적절한 액션을 반환
-        5. 액션 실행
+        5. 액션 실행 (ActionExecutor가 리소스 타입별로 실행 제어)
+        
+        Note:
+            - 매 프레임마다 호출되며, 비동기 액션이 실행 중이어도 계속 진행됩니다.
+            - ActionExecutor가 리소스 타입별로 실행 제어를 담당합니다.
+            - 같은 리소스 타입의 액션이 실행 중이면 새 액션은 무시됩니다.
+            - 리소스와 독립적인 액션(capture, qr_command)은 항상 실행됩니다.
         
         Returns:
             tuple: (observations, action, source)
@@ -89,7 +99,10 @@ class LiteBot:
         if self.images is None:
             self.images = {}
         
-        # 3. 감지 수행
+        # 3. 화재 감지 파일 확인 (건물 번호 수신)
+        self.fire_detector.set()
+        
+        # 4. 감지 수행
         observations = {
             "lane": self.observer.observe_lines(self.images["hough"]),
             "aruco": self.observer.observe_aruco(self.images["original"]),
@@ -98,7 +111,7 @@ class LiteBot:
             # 필요한 경우 다른 감지 추가
         }
         
-        # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
+        # 5. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
         action, source = self.trigger_manager.step(observations)
         
         # 5. 액션 실행

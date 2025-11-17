@@ -87,3 +87,35 @@ class ControllerInterface:
             ActionExecutor._execute_rotate()에서 호출
         """
         raise NotImplementedError("Subclass must implement rotate_in_place() method")
+    
+    def execute_async(self, action):
+        """
+            액션을 비동기로 실행 (즉시 반환)
+            
+            Args:
+                action: (command, value) 형태의 튜플
+                    - command: "drive_forward", "drive_backward", "drive_circle", "rotate" 등
+                    - value: 명령에 필요한 값
+            
+            Returns:
+                None (즉시 반환, 백그라운드에서 실행)
+        """
+        raise NotImplementedError("Subclass must implement execute_async() method")
+    
+    def is_action_running(self):
+        """
+            현재 액션이 실행 중인지 확인
+            
+            Returns:
+                bool: 액션이 실행 중이면 True, 아니면 False
+        """
+        raise NotImplementedError("Subclass must implement is_action_running() method")
+    
+    def cancel_action(self):
+        """
+            현재 실행 중인 액션을 취소하고 정지
+            
+            Returns:
+                None
+        """
+        raise NotImplementedError("Subclass must implement cancel_action() method")

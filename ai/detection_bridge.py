@@ -24,7 +24,7 @@ class DetectionLogEntry(object):
 class DetectionBridge(object):
     IMAGE_EXT = ".jpg"
 
-    def __init__(self, base_dir="detecting"):
+    def __init__(self, base_dir="detects"):
         self.base_dir = os.path.abspath(base_dir)
         self.session_info_path = os.path.join(self.base_dir, "current_session.json")
         self.session_id = None
