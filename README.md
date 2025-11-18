@@ -21,7 +21,10 @@ litebot/
 │   │   │   └── ros_controller.py
 │   │   └── tiki/                
 │   │       ├── tiki_camera.py
-│   │       └── tiki_controller.py
+│   │       ├── tiki_controller.py
+│   │       ├── tiki_sensor.py
+│   │       ├── tiki_led.py
+│   │       └── tiki_oled.py
 │   │
 │   ├── processing/              
 │   │   ├── image_processor.py
@@ -51,7 +54,9 @@ litebot/
 │   │   ├── 3_run_parallel_obs.py       # 튜토리얼 3: 병렬 관측 처리
 │   │   └── 4_run_with_detection.py     # 튜토리얼 4: DetectionBridge 연계
 │   └── tiki/
-│       └── run_tiki.py
+│       ├── 1_run_simple.py      # 기본 실행
+│       ├── 2_test_sensors.py     # 센서 테스트
+│       └── 3_test_led.py          # LED 테스트
 │
 ├── ai/
 │   ├── detection_bridge.py
@@ -167,3 +172,69 @@ python -m litebot.analysis.hls_viewer --video recordings/example_video.mp4 --sca
 ```bash
 python -m litebot.analysis.manual_drive --linear 0.2 --angular 0.5
 ```
+
+## Tiki 모드 사용법
+
+### Tiki 라이브러리 설치
+
+Tiki 라이브러리는 Jetson Nano에 이미 설치되어 있어야 합니다. 
+만약 설치되지 않았다면, 다음 경로에 설치되어 있는지 확인하세요:
+- `/home/jetson/Setup/venv/lib/python3.8/site-packages/tiki/mini/__init__.py`
+
+### 기본 실행
+
+```bash
+# Tiki 모드로 LiteBot 실행
+python examples/tiki/1_run_simple.py
+```
+
+### 센서 테스트
+
+```bash
+# 배터리, IMU, 인코더 값 읽기
+python examples/tiki/2_test_sensors.py
+```
+
+### LED 테스트
+
+```bash
+# LED 패턴 표시
+python examples/tiki/3_test_led.py
+```
+
+### Python 코드에서 사용
+
+```python
+from litebot.bot import LiteBot
+
+# Tiki 모드로 초기화
+bot = LiteBot(mode="tiki")
+
+# 센서 직접 사용
+from litebot.io.tiki import TikiSensor, TikiLed, TikiOled
+
+sensor = TikiSensor()
+voltage = sensor.get_battery_voltage()
+ax, ay, az = sensor.get_imu()
+
+led = TikiLed()
+led.set_pattern('X', (50, 0, 0))  # 빨간색 X 표시
+
+oled = TikiOled()
+oled.log("Hello Tiki!")
+```
+
+### Tiki API 주요 함수
+
+- **모터 제어**: `forward()`, `backward()`, `clockwise()`, `counter_clockwise()`, `stop()`
+- **센서**: `get_battery_voltage()`, `get_current()`, `get_imu()`, `get_encoder()`
+- **LED**: `set_led()`, `set_pattern()` (X, O, # 패턴 지원)
+- **OLED**: `log()`, `log_clear()`
+
+자세한 내용은 `litebot/io/tiki/` 디렉토리의 각 모듈을 참조하세요.
+
+### Tiki 모드 상세 가이드
+
+**⚠️ 중요**: 실제 하드웨어에서 Tiki 모드를 사용하기 전에 반드시 읽어보세요.
+
+- **[Tiki 모드 사용 가이드](docs/TIKI_MODE_GUIDE.md)**: 캘리브레이션, 설정, 문제 해결 등 상세 정보

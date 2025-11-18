@@ -7,9 +7,11 @@
 from __future__ import print_function
 
 import os
+import sys
+import time
 from datetime import datetime
 
-import rospy
+import cv2
 
 from litebot.bot import LiteBot
 
@@ -25,19 +27,35 @@ def _ensure_out_dir():
 
 
 def main():
-    rospy.init_node("litebot_aruco_capture", anonymous=False)
-    litebot = LiteBot(mode="ros")
-    rate = rospy.Rate(20)
-
+    # mode 인자 받기 (기본값: "ros")
+    mode = sys.argv[1] if len(sys.argv) > 1 else "ros"
+    
+    # ROS 모드인 경우에만 rospy 초기화
+    if mode == "ros":
+        import rospy
+        rospy.init_node("litebot_aruco_capture", anonymous=False)
+        rate = rospy.Rate(20)
+        is_shutdown = rospy.is_shutdown
+        log_func = rospy.loginfo
+    else:
+        # Tiki 모드인 경우
+        rate = None  # time.sleep으로 대체
+        is_shutdown = lambda: False
+        log_func = print
+    
+    litebot = LiteBot(mode=mode)
     save_dir = _ensure_out_dir()
 
-    while not rospy.is_shutdown():
+    while not is_shutdown():
         # 1. 프레임 캡처
         litebot.frame = litebot.camera.get_frame()
 
         # 프레임이 없으면 처리 중단
         if litebot.frame is None:
-            rate.sleep()
+            if mode == "ros":
+                rate.sleep()
+            else:
+                time.sleep(0.05)  # 20Hz
             continue
 
         # 2. 이미지 처리
@@ -53,39 +71,57 @@ def main():
         }
 
         # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
-        action, source = litebot.trigger_manager.step(observations)
+        # 주의: bot.py의 새로운 구조에서는 trigger_managers를 사용하지만,
+        # 여기서는 기존 방식(단일 trigger_manager)을 유지합니다.
+        motor_obs = {
+            "lane": observations["lane"],
+            "aruco": observations["aruco"],
+        }
+        action, source = litebot.trigger_managers["motor"].step(motor_obs)
 
         # 5. 액션 실행: 우세 트리거가 아루코면 캡처, 그 외는 정상 실행
         if action:
             cmd, val = action
             if source != 'lane':
-                    rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
+                log_func("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
             litebot.action_executor.execute(action)
-            # if source == "aruco":
-            #     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            #     # 최근 감지된 아루코 ID를 트리거에서 조회해 파일명에 포함
-            #     aruco_tr = None
-            #     try:
-            #         for t in litebot.trigger_manager.triggers:
-            #             if t.__class__.__name__ == "ArucoTrigger":
-            #                 aruco_tr = t
-            #                 break
-            #     except Exception:
-            #         aruco_tr = None
-            #     marker_id = aruco_tr.get_last_id() if aruco_tr and hasattr(aruco_tr, "get_last_id") else None
-            #     suffix = "aruco_{}".format(marker_id) if marker_id is not None else "aruco"
-            #     path = os.path.join(save_dir, "{}_{}.jpg".format(suffix, ts))
-            #     litebot.action_executor.execute(("capture", {"image": litebot.frame, "save_path": path}))
-            #     rospy.loginfo("[LiteBot] aruco captured: %s", path)
-            # else:
-            #     litebot.action_executor.execute(action)
-            #     if source != 'lane':
-            #         rospy.loginfo("[LiteBot] source=%s action=%s value=%s", source, action[0], action[1])
+            
+            # ArUco 마커가 감지되면 이미지 저장
+            if source == "aruco":
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                marker = observations.get("aruco")
+                marker_id = marker.get("id") if marker else None
+                if marker_id is not None:
+                    filename = "aruco_{}_{}.jpg".format(marker_id, timestamp)
+                else:
+                    filename = "aruco_{}.jpg".format(timestamp)
+                
+                save_path = os.path.join(save_dir, filename)
+                cv2.imwrite(save_path, litebot.frame)
+                log_func("[LiteBot] ArUco marker detected (ID: %s) and image saved: %s", marker_id, save_path)
 
-        rate.sleep()
+        if mode == "ros":
+            rate.sleep()
+        else:
+            time.sleep(0.05)  # 20Hz
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n[LiteBot] Interrupted by user")
+    except Exception as e:
+        print("[LiteBot] Error: {}".format(e))
+        import traceback
+        traceback.print_exc()
 
 
+# # ROS 모드 (기본값)
+# python tests/integration/capture_aruco.py
+
+# # 또는 명시적으로
+# python tests/integration/capture_aruco.py ros
+
+# # Tiki 모드
+# python tests/integration/capture_aruco.py tiki

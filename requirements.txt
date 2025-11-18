@@ -1,0 +1,19 @@
+# Core dependencies
+numpy>=1.19.0
+opencv-python>=4.5.0
+
+# Tiki library (optional, for Tiki mode)
+# tiki-mini  # Uncomment if available via pip
+# 또는 시스템에 설치된 tiki.mini 패키지 사용
+
+# ROS dependencies (optional, for ROS mode)
+# rospy  # Uncomment if using ROS mode
+
+# AI/ML dependencies
+# torch>=1.8.0  # Uncomment if using PyTorch
+# ultralytics  # Uncomment if using YOLO
+
+# Development dependencies
+# pytest>=6.0.0  # For testing
+# ipywidgets  # For Jupyter notebook examples
+

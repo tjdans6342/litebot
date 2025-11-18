@@ -14,11 +14,19 @@ from litebot.core.trigger_qrcode import QrcodeTrigger
 class TriggerManager:
     """
         여러 Trigger들을 관리하고 우선순위에 따라 액션을 반환하는 매니저
+        각 TriggerManager 인스턴스는 하나의 리소스만 담당합니다.
     """
     
-    def __init__(self, controller):
+    def __init__(self, resource=None):
         """
             TriggerManager 초기화
+            
+            Args:
+                resource: 리소스 객체 (is_action_running() 메서드를 가진 객체)
+                    - motor: Controller 객체 (ROSController 또는 TikiController)
+                    - led: LedResource 객체 (나중에 추가 시)
+                    - oled: OledResource 객체 (나중에 추가 시)
+                    - None: 리소스 독립 액션(capture, qr_command 등)을 담당
         """
         self.triggers = [
             ArucoTrigger(),
@@ -26,9 +34,10 @@ class TriggerManager:
             LaneTrigger(),
             QrcodeTrigger()
         ]
+        
+        # 자신의 리소스에 해당하는 액션을 큐에 저장
         self.current_actions = []
-
-        self.controller = controller
+        self.resource = resource
     
     def step(self, observations):
         """
@@ -42,21 +51,33 @@ class TriggerManager:
                     - action: (command, value)
                     - source: str, 우세한 트리거 이름 (예: "pothole", "lane", "aruco", "qrcode")
                 액션이 없는 경우: (None, None)
+            
+            Note:
+                트리거에서 수집한 모든 액션을 큐에 추가합니다.
+                현재 리소스가 실행 중이고 큐에 액션이 있으면 기다렸다가 (return None, None)
+                끝나면 다음 액션을 순차적으로 내보냅니다.
         """
-        # TODO: if action is executing, self.current_actions are must conserve!!!
-
-        if self.controller.is_action_running(): # tmp
-            return None, None
-
+        # 1. 현재 리소스가 실행 중인지 확인
+        # resource 객체가 있고 is_action_running() 메서드가 있으면 호출
+        if self.resource is not None and hasattr(self.resource, "is_action_running"):
+            if self.resource.is_action_running():
+                # 실행 중이면 기다림 (큐에 액션이 있든 없든 대기, 새 액션도 추가하지 않음)
+                return None, None
+        
+        # 2. 큐에 액션이 남아있으면 새 액션을 수집하지 않음 (시퀀스가 끝날 때까지 대기)
+        # action들 사이에 self.is_action_running()이 False가 되는 경우가 있을 수 있음
+        # 큐가 비어있을 때만 새 액션을 수집하여 큐에 할당
+        if not self.current_actions:
+            actions = self._collect_actions(observations)
+            if actions:
+                self.current_actions = actions
+        
+        # 3. 큐에서 다음 액션을 가져오기
         if self.current_actions:
             action = self.current_actions.pop(0)
-            return action, getattr(self, "_last_source", None)
+            return action, self._last_trigger_name
         
-        actions = self._collect_actions(observations)
-        if actions:
-            self.current_actions = actions
-            action = self.current_actions.pop(0)
-            return action, getattr(self, "_last_source", None)
+        # 큐가 비어있음
         return None, None
     
     def _collect_actions(self, observations):
@@ -68,7 +89,7 @@ class TriggerManager:
             action_list = self._to_action_list(actions)
             if action_list:
                 # 우세 트리거를 기억해 두고, 액션은 액션만 보관
-                self._last_source = self._trigger_name(trigger)
+                self._last_trigger_name = self._get_trigger_name(trigger)
                 return action_list
         return None
 
@@ -89,7 +110,7 @@ class TriggerManager:
         return None # 이상한 형태의 액션은 무시
 
     @staticmethod
-    def _trigger_name(trigger):
+    def _get_trigger_name(trigger):
         """
             트리거 인스턴스에서 식별용 이름을 얻습니다.
         """
@@ -97,14 +118,16 @@ class TriggerManager:
         if isinstance(name, str) and name:
             return name
         cls = trigger.__class__.__name__.lower()
-        # 관용적인 매핑
-        if "pothole" in cls:
-            return "pothole"
-        if "lane" in cls:
-            return "lane"
-        if "aruco" in cls:
-            return "aruco"
-        if "qrcode" in cls or "qr" in cls:
-            return "qrcode"
+        # 좀 더 깔끔하게 매핑
+        mapping = {
+            "pothole": "pothole",
+            "lane": "lane",
+            "aruco": "aruco",
+            "qrcode": "qrcode",
+            "qr": "qrcode"
+        }
+        for key, value in mapping.items():
+            if key in cls:
+                return value
         return cls
 

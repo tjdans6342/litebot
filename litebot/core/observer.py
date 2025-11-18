@@ -5,6 +5,8 @@
 Observer 클래스
 이미지를 받아서 특정 상황을 감지하는 클래스
 """
+import sys
+
 import cv2
 import numpy as np
 from litebot.utils import lane_utils, check_utils, aruco_utils
@@ -66,7 +68,7 @@ class Observer:
             return None
         
         # sliding window 결과 그대로 사용 (position, heading 외 보조 정보 포함)
-        return result
+        return result # ex) {"heading": 0.0, "position": 0.0, "fit": [0.0, 0.0, 0.0], "x": [0.0, 0.0, 0.0], "y": [0.0, 0.0, 0.0], "mid_avg": 0.0, "window_width": 150, "nwindows": 15, "exist_lines": True}
     
     def observe_aruco(self, image, **kwargs):
         """ 아루코 마커 감지 (세부 설명은 aruco_utils.detect_largest_marker 참고) """
@@ -76,7 +78,7 @@ class Observer:
             image,
             aruco_dict=aruco_dict_name,
             detector_params=detector_params
-        )
+        ) # ex) {"id": 0, "corners": [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], "center": (0.0, 0.0)} or None
     
     def observe_pothole(self, binary_image, **kwargs):
         """
@@ -87,10 +89,10 @@ class Observer:
                 **kwargs: 추가 파라미터 (white_ratio 등 체크 함수에 전달할 값)
             
             Returns:
-                bool 또는 None: 포트홀이 감지되면 True, 아니면 None
+                bool 또는 None: 포트홀이 감지되면 True, 아니면 False, None
         """
         if binary_image is None:
-            return None
+            return None 
 
         white_ratio = kwargs.get("white_ratio", 0.1)
         detected = check_utils.check_exist_pothole(
@@ -98,21 +100,23 @@ class Observer:
             white_ratio_thresh=white_ratio
         )
         
-        return detected
+        return detected # ex) True, False
     
     def observe_qr_codes(self, image, **kwargs):
         """
-            QR 코드를 감지합니다.
+            QR 코드를 감지하고 아군/적군으로 분류합니다.
             
             Args:
                 image: 원본 이미지
-                **kwargs: 추가 파라미터
+                **kwargs: 추가 파라미터 (현재 사용되지 않음)
             
             Returns:
-                list: 감지된 QR 코드들의 리스트 (각 QR 코드는 문자열 또는 dict)
-                또는 None (QR 코드를 감지하지 못한 경우)
+                str 또는 None:
+                    - "ally"(아군), "enemy"(적군), 또는 None (QR 코드 없음 또는 분류 불가)
         """
-        # TODO: 실제 QR 코드 감지 로직 구현
-        # 현재는 기본 구조만 제공
-        return None
+        # Python 2 버전에서는 QR 코드 감지 미지원
+        if sys.version_info[0] < 3:
+            return None
+        
+        return check_utils.check_qrcode(image)
 

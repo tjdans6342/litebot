@@ -14,7 +14,11 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 from litebot.bot import LiteBot  # noqa: E402
-from litebot.utils.display_utils import display_images
+from litebot.utils.display_utils import (
+    display_images,
+    annotate_lane_info,
+    visualize_hough_image
+)
 
 IMAGE_TARGETS = [
     # "original",
@@ -47,16 +51,24 @@ def main():
         # images가 None이면 빈 딕셔너리로 처리
         if litebot.images is None:
             litebot.images = {}
-        display_images(litebot.images, image_targets=IMAGE_TARGETS)
         
         # 3. 감지 수행
         observations = {
-            "lane": litebot.observer.observe_lines(litebot.images["hough"]),
+            "lane": litebot.observer.observe_lines(litebot.images.get("hough")),
             # "aruco": litebot.observer.observe_aruco(litebot.images["original"]),
             # "pothole": litebot.observer.observe_pothole(litebot.images["binary"]),
             # "qr_codes": litebot.observer.observe_qr_codes(litebot.images["original"]),
             # 필요한 경우 다른 감지 추가
         }
+        
+        # hough 이미지 시각화 (lane 정보가 있는 경우)
+        if litebot.images:
+            lane_info = observations.get("lane")
+            if lane_info and lane_info.get("exist_lines", True) and "hough" in litebot.images:
+                visualized = visualize_hough_image(litebot.images["hough"], lane_info)
+                litebot.images["hough"] = annotate_lane_info(visualized, lane_info)
+        
+        display_images(litebot.images, image_targets=IMAGE_TARGETS)
         
         # 4. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
         action, source = litebot.trigger_manager.step(observations)

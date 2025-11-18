@@ -21,14 +21,16 @@ def main():
     rate = rospy.Rate(20)
 
     while not rospy.is_shutdown():
-        observations, action, source = bot.step()
+        resource_obs_pairs, actions, sources = bot.step()
 
-        if observations is None:
+        if resource_obs_pairs is None:
             rate.sleep()
             continue
 
-        if action:
-            rospy.loginfo("[LiteBot] action=%s value=%s", action[0], action[1])
+        # 모든 리소스별 액션 로그 출력
+        for resource_type, action in actions.items():
+            if action:
+                rospy.loginfo("[LiteBot] resource=%s action=%s value=%s", resource_type, action[0], action[1])
 
         rate.sleep()
 

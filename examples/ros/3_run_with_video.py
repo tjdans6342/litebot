@@ -29,7 +29,7 @@ def main():
 
     try:
         while not rospy.is_shutdown():
-            observations, action, source = bot.step()
+            resource_obs_pairs, actions, sources = bot.step()
 
             if bot.frame is not None:
                 try:
@@ -40,12 +40,15 @@ def main():
                 except Exception as exc:
                     rospy.logwarn("[LiteBot] failed to add frame to recorder: %s", exc)
 
-            if observations is None:
+            if resource_obs_pairs is None:
                 rate.sleep()
                 continue
 
-            if action and source != 'lane':
-                rospy.loginfo("[LiteBot] action=%s value=%s", action[0], action[1])
+            # 모든 리소스별 액션 로그 출력 (lane 제외)
+            for resource_type, action in actions.items():
+                source = sources.get(resource_type)
+                if action and source != 'lane':
+                    rospy.loginfo("[LiteBot] resource=%s action=%s value=%s", resource_type, action[0], action[1])
 
             rate.sleep()
     finally:

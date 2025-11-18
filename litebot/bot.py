@@ -49,8 +49,14 @@ class LiteBot:
         # FireDetector 초기화 (파일 기반)
         self.fire_detector = FireDetector()
         
-        # TriggerManager 초기화
-        self.trigger_manager = TriggerManager(self.controller)
+        # TriggerManager 초기화 (리소스별로 분리)
+        # 우선순위: motor > led > oled > None (리소스 독립 액션)
+        self.trigger_managers = {
+            "motor": TriggerManager(resource=self.controller),
+            "led": TriggerManager(resource=None),  # 나중에 led_resource 추가 시
+            "oled": TriggerManager(resource=None),  # 나중에 oled_resource 추가 시
+            None: TriggerManager(resource=None)
+        }
         
         # ActionExecutor 초기화
         self.action_executor = ActionExecutor(self.controller)
@@ -99,24 +105,46 @@ class LiteBot:
         if self.images is None:
             self.images = {}
         
-        # # 3. 화재 감지 파일 확인 (건물 번호 수신)
-        # self.fire_detector.set()
         
-        # 4. 감지 수행
-        observations = {
+        # 3. 감지 수행
+        self.fire_detector.set() # 화재 감지 파일 확인 (건물 번호 수신)
+
+        default_obs = { # 리소스 독립 액션
+            "qr_codes": self.observer.observe_qr_codes(self.images["original"]),
+        }
+        motor_obs = { # 모터 리소스
             "lane": self.observer.observe_lines(self.images["hough"]),
             "aruco": self.observer.observe_aruco(self.images["original"]),
             "pothole": self.observer.observe_pothole(self.images["binary"]),
-            "qr_codes": self.observer.observe_qr_codes(self.images["original"]),
-            # 필요한 경우 다른 감지 추가
+        }
+        led_obs = { # LED 리소스
+            # TODO: 나중에 추가 시
+        }
+        oled_obs = { # OLED 리소스
+            # TODO: 나중에 추가 시
         }
         
-        # 5. 트리거 매니저가 적절한 액션과 우세 트리거명을 반환
-        action, source = self.trigger_manager.step(observations)
+        # 4. 트리거 매니저들이 적절한 액션과 우세 트리거명을 반환
+        # 리소스가 독립적이므로 모든 리소스별 TriggerManager의 step을 호출하여 각각 실행
+        resource_obs_pairs = [
+            (None, default_obs),
+            ("motor", motor_obs),
+            ("led", led_obs),
+            ("oled", oled_obs)
+        ]
+        actions = {}
+        sources = {}
+
+        for resource_type, obs in resource_obs_pairs[:2]:
+            trigger_manager = self.trigger_managers[resource_type]
+            resource_action, resource_source = trigger_manager.step(obs)
+            if resource_action:
+                actions.update({resource_type: resource_action})
+                sources.update({resource_type: resource_source})
         
         # 5. 액션 실행
-        if action:
+        for resource_type, action in actions.items():
             self.action_executor.execute(action)
         
-        return observations, action, source
+        return resource_obs_pairs, actions, sources # resource_obs_pairs: 리소스별 관찰 결과, actions: 리소스별 액션, sources: 리소스별 트리거명
 

@@ -50,21 +50,31 @@ def main():
     last_log_check = 0.0
 
     while not rospy.is_shutdown():
-        observations, action = bot.step() # observations: 관찰 결과, action: 액션
+        resource_obs_pairs, actions, sources = bot.step() # resource_obs_pairs: 리소스별 관찰 결과, actions: 리소스별 액션, sources: 리소스별 트리거명
 
-        if observations is None:
+        if resource_obs_pairs is None:
             rate.sleep()
             continue
 
         if bot.images:
-            lane_info = observations.get("lane")
-            if lane_info and lane_info.get("exist_lines", True) and "hough" in bot.images:
-                visualized = visualize_hough_image(bot.images["hough"], lane_info)
-                bot.images["hough"] = annotate_lane_info(visualized, lane_info)
+            # motor 관찰 결과에서 lane 정보 가져오기
+            motor_obs = None
+            for resource_type, obs in resource_obs_pairs:
+                if resource_type == "motor":
+                    motor_obs = obs
+                    break
+            
+            if motor_obs:
+                lane_info = motor_obs.get("lane")
+                if lane_info and lane_info.get("exist_lines", True) and "hough" in bot.images:
+                    visualized = visualize_hough_image(bot.images["hough"], lane_info)
+                    bot.images["hough"] = annotate_lane_info(visualized, lane_info)
             display_images(bot.images, image_targets=DISPLAY_IMAGE_TARGETS)
 
-        if action:
-            rospy.loginfo("[LiteBot] action=%s value=%s", action[0], action[1])
+        # 모든 리소스별 액션 로그 출력
+        for resource_type, action in actions.items():
+            if action:
+                rospy.loginfo("[LiteBot] resource=%s action=%s value=%s", resource_type, action[0], action[1])
 
 
         # 객체 감지 로그 확인  
