@@ -85,11 +85,22 @@ def _handle_capture(bot, state):
     if frame is None:
         print("캡처 실패: 카메라 프레임이 없습니다.")
         return
-    os.makedirs(state["capture_dir"], exist_ok=True)
+    
+
+    # for python3
+    # os.makedirs(state["capture_dir"], exist_ok=True)
+
+    # for python2
+    try:
+        os.makedirs(state["capture_dir"])
+    except OSError:
+        if not os.path.isdir(state["capture_dir"]):
+            raise
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-    save_path = os.path.join(state["capture_dir"], f"manual_{timestamp}.jpg")
+    save_path = os.path.join(state["capture_dir"], "manual_{}.jpg".format(timestamp))
     bot.action_executor.execute(("capture", (frame.copy(), save_path)))
-    print(f"캡처 완료: {save_path}")
+    print("캡처 완료: {}".format(save_path))
 
 
 def _key_to_char(key):
@@ -149,16 +160,18 @@ def main():
 
     publisher_thread = threading.Thread(
         target=_publisher_loop,
-        args=(bot, state),
-        daemon=True,
+        args=(bot, state)
+        # daemon=True,
     )
+    publisher_thread.daemon = True
     publisher_thread.start()
 
     display_thread = threading.Thread(
         target=_display_loop,
-        args=(bot, state),
-        daemon=True,
+        args=(bot, state)
+        # daemon=True,
     )
+    display_thread.daemon = True
     display_thread.start()
 
     print(

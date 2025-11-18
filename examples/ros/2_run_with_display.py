@@ -17,12 +17,13 @@ from litebot.bot import LiteBot  # noqa: E402
 from litebot.utils.display_utils import display_images
 
 IMAGE_TARGETS = [
-    "original",
+    # "original",
     "bev",
     "filtered",
-    "gray",
+    # "gray",
     # "blur",
-    # "binary",
+    "component_binary_img",
+    "binary",
     "canny",
     "hough",
 ]

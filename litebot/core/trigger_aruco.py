@@ -26,21 +26,21 @@ class ArucoTrigger:
             },
             2: {
                 1: [
-                    ("drive_forward", (0.3, 0.2111)), ("rotate", -90.0),
+                    ("drive_forward", (0.2, 0.2111)), ("rotate", -90.0),
                 ],
                 2: [
-                    ("rotate", 90.0), ("drive_forward", (0.5, 0.2111)), ("rotate", 90.0),
+                    ("drive_forward", (0.3, 0.2111)), ("rotate", 90.0),
                 ],
             },
             3: {
                 1: [
-                    ("drive_forward", (0.4, 0.2111)), ("rotate", 90.0),
+                    ("drive_forward", (0.3, 0.2111)), ("rotate", 90.0),
                 ],
                 2: [
                     ("rotate", 0.0),
                 ],
                 3: [
-                    ("drive_forward", (0.45, 0.2111)), ("rotate", -90.0),
+                    ("drive_forward", (0.4, 0.2111)), ("rotate", -90.0),
                 ],
             },
             5: {
