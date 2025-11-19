@@ -176,13 +176,13 @@ TIKI_CONFIG = {
 
 ```bash
 # 기본 실행 테스트
-python examples/tiki/1_run_simple.py
+python tests/hardware/tiki_run_simple.py
 
 # 센서 테스트
-python examples/tiki/2_test_sensors.py
+python tests/hardware/tiki_test_sensors.py
 
 # LED 테스트
-python examples/tiki/3_test_led.py
+python tests/hardware/tiki_test_led.py
 ```
 
 ### 2. 거리 제어 정확도 테스트
@@ -326,7 +326,6 @@ cam = TikiCamera(width=320, height=240, framerate=30)
 
 ## 추가 리소스
 
-- **예제 코드**: `examples/tiki/`
 - **테스트 코드**: `tests/hardware/tiki_*.py`
 - **API 문서**: `litebot/io/tiki/` 디렉토리의 각 모듈
 - **Tiki 라이브러리 문서**: Tiki 공식 문서 참조

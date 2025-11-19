@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Tiki 모드의 가장 단순한 LiteBot 실행 예제.
+Tiki 모드의 가장 단순한 LiteBot 실행 테스트
 """
 import os
 import sys
@@ -18,11 +18,11 @@ def main():
     """
         Tiki 모드로 LiteBot 실행
     """
-    print("[Tiki Example] Initializing LiteBot in Tiki mode...")
+    print("[Tiki Test] Initializing LiteBot in Tiki mode...")
     bot = LiteBot(mode="tiki")
     
-    print("[Tiki Example] Starting main loop...")
-    print("[Tiki Example] Press Ctrl+C to stop")
+    print("[Tiki Test] Starting main loop...")
+    print("[Tiki Test] Press Ctrl+C to stop")
     
     try:
         while True:
@@ -41,9 +41,9 @@ def main():
             time.sleep(0.05)  # 20Hz
             
     except KeyboardInterrupt:
-        print("\n[Tiki Example] Stopping...")
+        print("\n[Tiki Test] Stopping...")
     finally:
-        print("[Tiki Example] Done")
+        print("[Tiki Test] Done")
 
 
 if __name__ == "__main__":

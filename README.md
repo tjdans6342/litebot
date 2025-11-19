@@ -47,16 +47,12 @@ litebot/
 │       └── image_utils.py       # BEV, color_filter, get_largest_component 등
 │
 ├── examples/
-│   ├── ros/
-│   │   ├── run_ros.py                  # 기본 실행 (튜토리얼 1단계와 동일)
-│   │   ├── 1_run_simple.py             # 튜토리얼 1: 최소 구성
-│   │   ├── 2_run_with_video.py         # 튜토리얼 2: 주행 + 비디오 녹화
-│   │   ├── 3_run_parallel_obs.py       # 튜토리얼 3: 병렬 관측 처리
-│   │   └── 4_run_with_detection.py     # 튜토리얼 4: DetectionBridge 연계
-│   └── tiki/
-│       ├── 1_run_simple.py      # 기본 실행
-│       ├── 2_test_sensors.py     # 센서 테스트
-│       └── 3_test_led.py          # LED 테스트
+│   └── ros/
+│       ├── run_ros.py                  # 기본 실행 (튜토리얼 1단계와 동일)
+│       ├── 1_run_simple.py             # 튜토리얼 1: 최소 구성
+│       ├── 2_run_with_video.py         # 튜토리얼 2: 주행 + 비디오 녹화
+│       ├── 3_run_parallel_obs.py       # 튜토리얼 3: 병렬 관측 처리
+│       └── 4_run_with_detection.py     # 튜토리얼 4: DetectionBridge 연계
 │
 ├── ai/
 │   ├── detection_bridge.py
@@ -75,7 +71,12 @@ litebot/
 │   │   ├── ros_executor_run.py
 │   │   ├── ros_resource_separation.py
 │   │   ├── ros_camera_run.py
-│   │   └── tiki_*.py (동일 구조)
+│   │   ├── tiki_run_simple.py      # Tiki 모드 기본 실행
+│   │   ├── tiki_test_sensors.py    # Tiki 센서 테스트
+│   │   ├── tiki_test_led.py        # Tiki LED 테스트
+│   │   ├── tiki_camera_run.py
+│   │   ├── tiki_controller_run.py
+│   │   └── tiki_executor_run.py
 │   ├── integration/             # 통합 테스트
 │   │   ├── capture_pothole.py
 │   │   └── capture_aruco.py
@@ -185,21 +186,21 @@ Tiki 라이브러리는 Jetson Nano에 이미 설치되어 있어야 합니다.
 
 ```bash
 # Tiki 모드로 LiteBot 실행
-python examples/tiki/1_run_simple.py
+python tests/hardware/tiki_run_simple.py
 ```
 
 ### 센서 테스트
 
 ```bash
 # 배터리, IMU, 인코더 값 읽기
-python examples/tiki/2_test_sensors.py
+python tests/hardware/tiki_test_sensors.py
 ```
 
 ### LED 테스트
 
 ```bash
 # LED 패턴 표시
-python examples/tiki/3_test_led.py
+python tests/hardware/tiki_test_led.py
 ```
 
 ### Python 코드에서 사용

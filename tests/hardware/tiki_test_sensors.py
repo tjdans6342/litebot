@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Tiki 센서 테스트 예제
+Tiki 센서 테스트
 배터리, IMU, 인코더 값을 읽어서 표시합니다.
 """
 import os

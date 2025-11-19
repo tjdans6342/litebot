@@ -38,11 +38,11 @@ class TikiCamera(CameraInterface):
         
         # GStreamer 파이프라인 구성
         pipeline = (
-            f"nvarguscamerasrc ! video/x-raw(memory:NVMM), "
-            f"width={width}, height={height}, format=NV12, framerate={framerate}/1 ! "
+            "nvarguscamerasrc ! video/x-raw(memory:NVMM), "
+            "width={}, height={}, format=NV12, framerate={}/1 ! "
             "nvvidconv ! video/x-raw, format=BGRx ! "
             "videoconvert ! video/x-raw, format=BGR ! appsink"
-        )
+        ).format(width, height, framerate)
         
         # 카메라 열기
         self.cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)

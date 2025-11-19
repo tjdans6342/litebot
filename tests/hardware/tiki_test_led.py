@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Tiki LED 테스트 예제
+Tiki LED 테스트
 LED 패턴을 표시합니다.
 """
 import os
