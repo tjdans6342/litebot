@@ -44,14 +44,34 @@ def detect_largest_marker(image, aruco_dict="DICT_4X4_50", detector_params=None)
         raise RuntimeError("cv2.aruco 모듈이 필요합니다. opencv-contrib-python 설치 여부를 확인하세요.")
 
     dictionary = getattr(aruco_module, aruco_dict, aruco_module.DICT_4X4_50)
-    aruco_dict_obj = aruco_module.Dictionary_get(dictionary)
-
-    if detector_params is None:
-        parameters = aruco_module.DetectorParameters_create()
-    else:
-        parameters = detector_params
-
-    corners, ids, _ = aruco_module.detectMarkers(gray, aruco_dict_obj, parameters=parameters)
+    
+    # OpenCV 버전 호환성 처리
+    # OpenCV 4.7.0+ 에서는 ArucoDetector 사용
+    # OpenCV 4.x 에서는 getPredefinedDictionary 사용
+    # OpenCV 3.x 에서는 Dictionary_get 사용
+    try:
+        # OpenCV 4.7.0+ 방식 시도
+        aruco_dict_obj = aruco_module.getPredefinedDictionary(dictionary)
+        if detector_params is None:
+            parameters = aruco_module.DetectorParameters()
+        else:
+            parameters = detector_params
+        
+        try:
+            # ArucoDetector 사용 (OpenCV 4.7.0+)
+            detector = aruco_module.ArucoDetector(aruco_dict_obj, parameters)
+            corners, ids, _ = detector.detectMarkers(gray)
+        except (AttributeError, TypeError):
+            # detectMarkers 직접 사용 (OpenCV 4.x)
+            corners, ids, _ = aruco_module.detectMarkers(gray, aruco_dict_obj, parameters=parameters)
+    except (AttributeError, TypeError):
+        # OpenCV 3.x 방식
+        aruco_dict_obj = aruco_module.Dictionary_get(dictionary)
+        if detector_params is None:
+            parameters = aruco_module.DetectorParameters_create()
+        else:
+            parameters = detector_params
+        corners, ids, _ = aruco_module.detectMarkers(gray, aruco_dict_obj, parameters=parameters)
     if ids is None or len(ids) == 0:
         return None
 

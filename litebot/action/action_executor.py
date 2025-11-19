@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 from ai.detection_bridge import DetectionBridge
-from litebot.io.ros.ros_controller import ROSController
+# from litebot.io.ros.ros_controller import ROSController
 from litebot.io.tiki.tiki_controller import TikiController
 from litebot.core.control.pid_controller import PIDController
 

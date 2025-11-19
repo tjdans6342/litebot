@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import rospy
+import time
 
 
 class PIDController:
@@ -50,7 +50,7 @@ class PIDController:
         float : 제어 출력값
         """
         if current_time is None:
-            current_time = rospy.get_time()
+            current_time = time.time()
 
         if self.prev_time is None:
             dt = 0.0
@@ -81,7 +81,7 @@ class PIDController:
         self.integral = 0.0
         self.prev_error = 0.0
         self.prev_time = None
-        rospy.loginfo("[PIDController] 🔄 reset")
+        print("[PIDController] 🔄 reset")
 
     # -------------------------------------------------------
     #  디버깅용 문자열 출력

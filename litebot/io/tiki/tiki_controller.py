@@ -50,7 +50,24 @@ class TikiController(ControllerInterface):
         
         # 인코더 기반 거리 제어를 위한 상수
         # TODO: 실제 로봇에 맞게 캘리브레이션 필요
-        self.encoder_ticks_per_meter = 1000  # 1미터당 인코더 틱 수
+        self.encoder_ticks_per_meter = 5555  # 1미터당 인코더 틱 수
+    
+    def _read_encoder(self, motor_id):
+        """
+            TikiMini 인코더 값을 안정적으로 읽어 정수로 반환
+        """
+        if self.tiki is None:
+            return 0
+        
+        try:
+            result = self.tiki.get_encoder(motor_id)
+            if isinstance(result, (list, tuple)):
+                if len(result) > 0:
+                    return int(result[0])
+                return 0
+            return int(result)
+        except Exception:
+            return 0
     
     def _convert_speed_to_rpm(self, speed_mps):
         """
@@ -64,7 +81,7 @@ class TikiController(ControllerInterface):
         """
         # TODO: 실제 로봇에 맞게 캘리브레이션 필요
         # 예시: 0.5 m/s = 50 RPM 정도로 가정
-        max_speed_mps = 1.0  # 최대 속도 (m/s)
+        max_speed_mps = 0.365  # 최대 속도 (m/s)
         rpm = int((speed_mps / max_speed_mps) * 127)
         return max(-127, min(127, rpm))
     
@@ -82,7 +99,7 @@ class TikiController(ControllerInterface):
         # 차동 주행 모델
         # v_left = v - (w * wheelbase / 2)
         # v_right = v + (w * wheelbase / 2)
-        wheelbase = 0.2  # 바퀴 간 거리 (m), TODO: 실제 값으로 수정
+        wheelbase = 0.163  # 바퀴 간 거리 (m), TODO: 실제 값으로 수정
         
         v_left = linear_x - (angular_z * wheelbase / 2.0)
         v_right = linear_x + (angular_z * wheelbase / 2.0)
@@ -138,7 +155,7 @@ class TikiController(ControllerInterface):
             return
         
         # 인코더 기반 거리 제어
-        initial_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
+        initial_left = self._read_encoder(self.tiki.MOTOR_LEFT)
         target_ticks = int(distance * self.encoder_ticks_per_meter)
         
         rpm = self._convert_speed_to_rpm(speed)
@@ -147,8 +164,8 @@ class TikiController(ControllerInterface):
         
         # 목표 거리까지 대기
         while True:
-            current_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
-            traveled_ticks = current_left - initial_left
+            current_left = self._read_encoder(self.tiki.MOTOR_LEFT)
+            traveled_ticks = abs(current_left - initial_left)
             
             if traveled_ticks >= target_ticks:
                 self.brake()
@@ -171,7 +188,7 @@ class TikiController(ControllerInterface):
             return
         
         # 인코더 기반 거리 제어 (음수 방향)
-        initial_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
+        initial_left = self._read_encoder(self.tiki.MOTOR_LEFT)
         target_ticks = int(distance * self.encoder_ticks_per_meter)
         
         rpm = -self._convert_speed_to_rpm(speed)  # 음수로 후진
@@ -180,8 +197,8 @@ class TikiController(ControllerInterface):
         
         # 목표 거리까지 대기
         while True:
-            current_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
-            traveled_ticks = initial_left - current_left  # 후진이므로 반대
+            current_left = self._read_encoder(self.tiki.MOTOR_LEFT)
+            traveled_ticks = abs(current_left - initial_left)
             
             if traveled_ticks >= target_ticks:
                 self.brake()
@@ -209,7 +226,7 @@ class TikiController(ControllerInterface):
         left_rpm, right_rpm = self._convert_angular_to_differential(speed, angular_velocity)
         
         # 인코더 기반 거리 제어
-        initial_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
+        initial_left = self._read_encoder(self.tiki.MOTOR_LEFT)
         target_ticks = int(distance * self.encoder_ticks_per_meter)
         
         self.tiki.set_motor_power(self.tiki.MOTOR_LEFT, left_rpm)
@@ -217,7 +234,7 @@ class TikiController(ControllerInterface):
         
         # 목표 거리까지 대기
         while True:
-            current_left = int(self.tiki.get_encoder(self.tiki.MOTOR_LEFT)[0])
+            current_left = self._read_encoder(self.tiki.MOTOR_LEFT)
             traveled_ticks = abs(current_left - initial_left)
             
             if traveled_ticks >= target_ticks:

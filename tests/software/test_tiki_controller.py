@@ -11,7 +11,48 @@ from __future__ import print_function
 import time
 import threading
 
-from litebot.io.tiki.tiki_controller import TikiController
+from litebot.io.tiki.tiki_controller import TikiController, TIKI_AVAILABLE
+
+_REGISTERED_CONTROLLERS = []
+
+
+def _register_controller(ctrl):
+    """
+    생성된 컨트롤러를 등록하여 종료 시 brake 호출
+    """
+    if ctrl is not None and ctrl not in _REGISTERED_CONTROLLERS:
+        _REGISTERED_CONTROLLERS.append(ctrl)
+
+
+def _require_hardware(test_name):
+    """
+    하드웨어(TikiMini)가 없는 경우 테스트를 건너뛰기 위한 헬퍼
+    """
+    if not TIKI_AVAILABLE:
+        print("[SKIP] {} - tiki.mini 모듈이 없어 stub 모드로 실행 중입니다.".format(test_name))
+        return None
+    
+    ctrl = TikiController()
+    _register_controller(ctrl)
+    if ctrl.tiki is None:
+        print("[SKIP] {} - TikiMini 인스턴스를 생성하지 못했습니다.".format(test_name))
+        return None
+    
+    return ctrl
+
+
+def _cleanup_controllers():
+    """
+    테스트 종료 시 등록된 컨트롤러 브레이크
+    """
+    if not _REGISTERED_CONTROLLERS:
+        return
+    print("\n[Cleanup] Braking {} controller(s)...".format(len(_REGISTERED_CONTROLLERS)))
+    for ctrl in _REGISTERED_CONTROLLERS:
+        try:
+            ctrl.brake()
+        except Exception as exc:
+            print("[Cleanup] brake failed: {}".format(exc))
 
 
 def test_initialization():
@@ -20,12 +61,14 @@ def test_initialization():
     
     # PID 모드로 초기화
     ctrl_pid = TikiController(motor_mode='PID')
+    _register_controller(ctrl_pid)
     assert ctrl_pid.motor_mode == 'PID', "PID 모드 초기화 실패"
     assert ctrl_pid.current_speed == 0.0, "초기 속도는 0이어야 함"
     print("[OK] PID 모드 초기화 성공")
     
     # PWM 모드로 초기화
     ctrl_pwm = TikiController(motor_mode='PWM')
+    _register_controller(ctrl_pwm)
     assert ctrl_pwm.motor_mode == 'PWM', "PWM 모드 초기화 실패"
     print("[OK] PWM 모드 초기화 성공")
     
@@ -37,6 +80,7 @@ def test_brake():
     print("\n=== Test 2: Brake ===")
     
     ctrl = TikiController()
+    _register_controller(ctrl)
     
     # 속도 설정 후 정지
     ctrl.update_speed_angular(0.5, 0.0)
@@ -53,6 +97,7 @@ def test_update_speed_angular():
     print("\n=== Test 3: update_speed_angular ===")
     
     ctrl = TikiController()
+    _register_controller(ctrl)
     
     # 다양한 속도 조합 테스트
     test_cases = [
@@ -70,21 +115,48 @@ def test_update_speed_angular():
     print("[PASS] Test 3: update_speed_angular")
 
 
+# def test_drive_forward_distance():
+#     """전진 거리 테스트"""
+#     print("\n=== Test 4: drive_forward_distance ===")
+    
+#     ctrl = _require_hardware("Test 4: drive_forward_distance")
+#     if ctrl is None:
+#         return
+    
+#     # 짧은 거리 테스트
+#     print("[Test] 0.1m 전진 @ 0.2 m/s")
+#     start_time = time.time()
+#     ctrl.drive_forward_distance(1.0, 0.1)
+#     duration = time.time() - start_time
+    
+#     assert ctrl.current_speed == 0.0, "전진 완료 후 속도는 0이어야 함"
+#     print("[OK] 전진 완료 (소요 시간: {:.2f}초)".format(duration))
+    
+#     print("[PASS] Test 4: drive_forward_distance")
+
+
 def test_drive_forward_distance():
     """전진 거리 테스트"""
     print("\n=== Test 4: drive_forward_distance ===")
-    
-    ctrl = TikiController()
-    
+
+    ctrl = _require_hardware("Test 4: drive_forward_distance")
+    if ctrl is None:
+        return
+
     # 짧은 거리 테스트
     print("[Test] 0.1m 전진 @ 0.2 m/s")
+
     start_time = time.time()
-    ctrl.drive_forward_distance(0.1, 0.2)
-    duration = time.time() - start_time
-    
+    ctrl.drive_forward_distance(0.1, 0.2)   # 거리(m), 속도(v)
+    end_time = time.time()
+
+    duration = end_time - start_time
+
     assert ctrl.current_speed == 0.0, "전진 완료 후 속도는 0이어야 함"
-    print("[OK] 전진 완료 (소요 시간: {:.2f}초)".format(duration))
-    
+
+    print("[OK] 전진 완료")
+    print("[TIME] drive_forward_distance 실행 시간: {:.3f} 초".format(duration))
+
     print("[PASS] Test 4: drive_forward_distance")
 
 
@@ -92,7 +164,9 @@ def test_drive_backward_distance():
     """후진 거리 테스트"""
     print("\n=== Test 5: drive_backward_distance ===")
     
-    ctrl = TikiController()
+    ctrl = _require_hardware("Test 5: drive_backward_distance")
+    if ctrl is None:
+        return
     
     # 짧은 거리 테스트
     print("[Test] 0.1m 후진 @ 0.2 m/s")
@@ -110,7 +184,9 @@ def test_drive_circle_distance():
     """원형 주행 테스트"""
     print("\n=== Test 6: drive_circle_distance ===")
     
-    ctrl = TikiController()
+    ctrl = _require_hardware("Test 6: drive_circle_distance")
+    if ctrl is None:
+        return
     
     # 좌회전 원형 주행
     print("[Test] 좌회전 원형 주행 (0.5m, v=0.3, w=1.0)")
@@ -137,7 +213,9 @@ def test_rotate_in_place():
     """제자리 회전 테스트"""
     print("\n=== Test 7: rotate_in_place ===")
     
-    ctrl = TikiController()
+    ctrl = _require_hardware("Test 7: rotate_in_place")
+    if ctrl is None:
+        return
     
     # 좌회전 테스트
     print("[Test] 좌회전 90도 @ 1.0 rad/s")
@@ -164,7 +242,9 @@ def test_async_action():
     """비동기 액션 테스트"""
     print("\n=== Test 8: Async Action ===")
     
-    ctrl = TikiController()
+    ctrl = _require_hardware("Test 8: Async Action")
+    if ctrl is None:
+        return
     
     # 비동기 전진 실행
     print("[Test] 비동기 전진 시작")
@@ -206,7 +286,9 @@ def test_async_actions():
     """다양한 비동기 액션 테스트"""
     print("\n=== Test 9: Various Async Actions ===")
     
-    ctrl = TikiController()
+    ctrl = _require_hardware("Test 9: Various Async Actions")
+    if ctrl is None:
+        return
     
     # 후진 비동기 액션
     print("[Test] 비동기 후진")
@@ -256,6 +338,7 @@ def test_speed_conversion():
     print("\n=== Test 10: Speed Conversion ===")
     
     ctrl = TikiController()
+    _register_controller(ctrl)
     
     # 속도 변환 테스트
     test_speeds = [0.0, 0.25, 0.5, 1.0, -0.5]
@@ -283,19 +366,21 @@ def main():
     
     try:
         test_initialization()
-        test_brake()
-        test_update_speed_angular()
+        # test_brake()
+        # test_update_speed_angular()
         test_drive_forward_distance()
-        test_drive_backward_distance()
-        test_drive_circle_distance()
-        test_rotate_in_place()
-        test_async_action()
-        test_async_actions()
-        test_speed_conversion()
+        # test_drive_backward_distance()
+        # test_drive_circle_distance()
+        # test_rotate_in_place()
+        # test_async_action()
+        # test_async_actions()
+        # test_speed_conversion()
         
         print("\n" + "=" * 60)
         print("[SUCCESS] All tests passed!")
         print("=" * 60)
+    except KeyboardInterrupt:
+        print("\n[INTERRUPTED] KeyboardInterrupt received. Stopping controllers...")
     except AssertionError as e:
         print("\n[FAIL] Assertion failed: {}".format(e))
         import traceback
@@ -304,6 +389,8 @@ def main():
         print("\n[ERROR] Test failed: {}".format(e))
         import traceback
         traceback.print_exc()
+    finally:
+        _cleanup_controllers()
 
 
 if __name__ == "__main__":

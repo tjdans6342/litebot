@@ -5,10 +5,6 @@
 LiteBot 클래스
 자율주행 로봇의 메인 클래스로 모든 컴포넌트를 통합합니다.
 """
-from litebot.io.ros.ros_camera import ROSCamera
-from litebot.io.tiki.tiki_camera import TikiCamera
-from litebot.io.ros.ros_controller import ROSController
-from litebot.io.tiki.tiki_controller import TikiController
 from litebot.processing.image_processor import ImageProcessor
 from litebot.core.observer import Observer
 from litebot.core.trigger_manager import TriggerManager
@@ -34,11 +30,21 @@ class LiteBot:
             raise ValueError("Unknown mode: {}. Use 'ros' or 'tiki'".format(mode))
         self.mode = mode
         
-        # Controller 초기화
-        self.controller = ROSController() if mode == "ros" else TikiController()
+        # Controller 초기화 (조건부 import)
+        if mode == "ros":
+            from litebot.io.ros.ros_controller import ROSController
+            self.controller = ROSController()
+        else:
+            from litebot.io.tiki.tiki_controller import TikiController
+            self.controller = TikiController()
         
-        # Camera 초기화
-        self.camera = ROSCamera() if mode == "ros" else TikiCamera()
+        # Camera 초기화 (조건부 import)
+        if mode == "ros":
+            from litebot.io.ros.ros_camera import ROSCamera
+            self.camera = ROSCamera()
+        else:
+            from litebot.io.tiki.tiki_camera import TikiCamera
+            self.camera = TikiCamera()
         
         # ImageProcessor 초기화
         self.image_processor = ImageProcessor()
