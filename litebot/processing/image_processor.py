@@ -8,7 +8,7 @@
 import cv2
 import numpy as np
 from litebot.utils import image_utils
-
+import json
 
 class ImageProcessor:
     """
@@ -23,6 +23,10 @@ class ImageProcessor:
         """
         # 기본 파라미터 (나중에 config로 이동)
         self._init_default_params()
+        with open("intrinsic.json", "r") as f:
+            self.intrinsic = json.load(f)
+        self.K = np.array(self.intrinsic["camera_matrix"])
+        self.dist = np.array(self.intrinsic["distortion_coefficients"])
     
     def _init_default_params(self):
         """
@@ -32,9 +36,9 @@ class ImageProcessor:
 
         # --- BEV 변환 파라미터 ---
         self.bev_normalized = True
-        self.roi_top = 0.75
+        self.roi_top = 0.5
         self.roi_bottom = 0.0
-        self.roi_margin = 0.1
+        self.roi_margin = 0.2
         self.bev_dst_size = None  # (width, height) 또는 None (자동 계산)
 
         # --- Color filter 파라미터 (HLS 범위) ---
@@ -75,6 +79,7 @@ class ImageProcessor:
         """
         if frame is None:
             return {"original": None}
+        frame = cv2.undistort(frame, self.K, self.dist)
         
         height, width = frame.shape[:2]
         

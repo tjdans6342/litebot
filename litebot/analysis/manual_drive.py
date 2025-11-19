@@ -12,10 +12,10 @@ LiteBot 수동 주행 스크립트 (ROS/Tiki 모드 지원)
 - 실시간 카메라 프레임을 OpenCV 창으로 표시
 
 필수 조건:
-- `pynput` 설치 (`pip install pynput`)
 - ROS 모드 사용 시: ROS 환경 준비 및 `roscore` 실행
 - Tiki 모드 사용 시: Tiki 하드웨어 연결
 - litebot 패키지를 모듈로 실행할 수 있는 PYTHONPATH 설정
+- OpenCV 창이 표시되어야 하므로 DISPLAY 환경 변수 설정 필요 (SSH의 경우 X11 forwarding)
 """
 import argparse
 import os
@@ -24,27 +24,43 @@ import time
 from datetime import datetime
 
 import cv2
-from pynput import keyboard
 
 from litebot.bot import LiteBot
 from litebot.analysis.video_recorder import VideoRecorder
 
 
 def _compute_command(state):
-    pressed = state["pressed"]
+    """현재 눌린 키에 따라 선속도/각속도 계산"""
+    pressed_keys = state["pressed"]
     linear = 0.0
     angular = 0.0
 
-    if keyboard.Key.up in pressed:
-        linear += state["linear_speed"]
-    if keyboard.Key.down in pressed:
-        linear -= state["linear_speed"]
-    if keyboard.Key.left in pressed:
-        angular += state["angular_speed"]
-    if keyboard.Key.right in pressed:
-        angular -= state["angular_speed"]
+    # 화살표 키 또는 WASD 키 지원
+    # OpenCV 키 코드: 82=↑, 84=↓, 81=←, 83=→
+    # 또는 일반 키: w/W=전진, s/S=후진, a/A=좌회전, d/D=우회전
+    up_keys = [82, ord('w'), ord('W')]  # Up arrow or W
+    down_keys = [84, ord('s'), ord('S')]  # Down arrow or S
+    left_keys = [81, ord('a'), ord('A')]  # Left arrow or A
+    right_keys = [83, ord('d'), ord('D')]  # Right arrow or D
+    
+    for key in up_keys:
+        if key in pressed_keys:
+            linear += state["linear_speed"]
+            break
+    for key in down_keys:
+        if key in pressed_keys:
+            linear -= state["linear_speed"]
+            break
+    for key in left_keys:
+        if key in pressed_keys:
+            angular += state["angular_speed"]
+            break
+    for key in right_keys:
+        if key in pressed_keys:
+            angular -= state["angular_speed"]
+            break
 
-    if keyboard.Key.space in pressed:
+    if 32 in pressed_keys:  # Space
         linear = 0.0
         angular = 0.0
 
@@ -52,17 +68,65 @@ def _compute_command(state):
 
 
 def _publisher_loop(bot, state):
+    """모터 제어 루프"""
     while state["running"]:
         with state["lock"]:
             linear, angular = _compute_command(state)
+            state["current_linear"] = linear
+            state["current_angular"] = angular
         bot.controller.update_speed_angular(linear, angular)
         time.sleep(state["publish_interval"])
     bot.controller.brake()
 
 
 def _display_loop(bot, state, recorder=None):
+    """디스플레이 및 키 입력 처리 루프"""
     window_name = "LiteBot Manual Drive"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    
+    # DISPLAY 환경 변수 확인
+    display = os.environ.get('DISPLAY')
+    if not display:
+        print("[Warning] DISPLAY 환경 변수가 설정되지 않았습니다.")
+        print("[Warning] OpenCV 창을 표시할 수 없습니다. 다음 중 하나를 시도하세요:")
+        print("  1. SSH 접속 시 X11 forwarding 사용: ssh -X jetson@jetson-desktop")
+        print("  2. DISPLAY 환경 변수 설정: export DISPLAY=:0")
+        print("  3. Jetson에 직접 모니터 연결 후 실행")
+        print("\n[Error] GUI를 사용할 수 없어 종료합니다.")
+        state["running"] = False
+        return
+    
+    # X 서버 연결 테스트
+    try:
+        import subprocess
+        result = subprocess.run(['xset', 'q'], 
+                              capture_output=True, 
+                              timeout=2)
+        if result.returncode != 0:
+            print("[Warning] X 서버 연결 테스트 실패. DISPLAY={}".format(display))
+            print("[Info] X 서버 연결을 확인하는 중...")
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        print("[Warning] X 서버 연결 확인 실패: {}".format(e))
+    
+    try:
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    except cv2.error as e:
+        print("[Error] OpenCV 창을 생성할 수 없습니다: {}".format(e))
+        print("[Error] DISPLAY={} 설정을 확인하세요.".format(display))
+        print("\n[해결 방법]")
+        print("1. Windows에서 VcXsrv가 실행 중인지 확인")
+        print("2. VcXsrv 설정에서 'Disable access control'이 체크되어 있는지 확인")
+        print("3. Windows 방화벽에서 VcXsrv 허용 확인")
+        print("4. DISPLAY 재설정 시도:")
+        print("   - Windows IP 주소 확인: ipconfig (Windows에서)")
+        print("   - export DISPLAY=<Windows_IP>:0.0")
+        print("   예: export DISPLAY=192.168.50.100:0.0")
+        print("5. 또는 Jetson에 직접 모니터 연결 후 실행")
+        state["running"] = False
+        return
+    
+    # 키 입력 상태 추적 (OpenCV는 키가 눌린 상태를 직접 추적하지 않으므로 수동 관리)
+    last_key_time = {}  # 키 코드 -> 마지막 눌린 시간
+    
     try:
         while state["running"]:
             frame = bot.camera.get_frame()
@@ -74,11 +138,51 @@ def _display_loop(bot, state, recorder=None):
                     except Exception as e:
                         print("[Warning] Failed to add frame to recorder: {}".format(e))
                 
+                # 상태 표시 텍스트 추가
+                status_text = "Mode: {} | Linear: {:.2f} | Angular: {:.2f}".format(
+                    state.get("mode", "unknown"),
+                    state.get("current_linear", 0.0),
+                    state.get("current_angular", 0.0)
+                )
+                if state.get("recording", False):
+                    status_text += " | [REC]"
+                cv2.putText(frame, status_text, (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                
                 cv2.imshow(window_name, frame)
+            
+            # 키 입력 처리 (OpenCV waitKey는 키가 눌렸을 때만 반환)
             key = cv2.waitKey(1) & 0xFF
-            if key == 27:  # ESC
-                state["running"] = False
-                break
+            current_time = time.time()
+            
+            with state["lock"]:
+                # 키가 눌렸는지 확인
+                if key != 255:  # 255는 키가 눌리지 않았을 때
+                    last_key_time[key] = current_time
+                    state["pressed"].add(key)
+                    
+                    # 특수 키 처리
+                    if key == 27:  # ESC
+                        state["running"] = False
+                        break
+                    elif key == ord('c') or key == ord('C'):  # C 키
+                        _handle_capture(bot, state)
+                    elif key == ord('v') or key == ord('V'):  # V 키
+                        if recorder is not None:
+                            _handle_video_recording(bot, state, recorder)
+                
+                # 키가 일정 시간 이상 눌리지 않으면 released로 간주
+                # (연속 입력을 위해 짧은 시간 동안은 유지)
+                keys_to_remove = []
+                for k in state["pressed"]:
+                    if k in last_key_time:
+                        if current_time - last_key_time[k] > 0.15:  # 150ms 후 release
+                            keys_to_remove.append(k)
+                    else:
+                        keys_to_remove.append(k)
+                for k in keys_to_remove:
+                    state["pressed"].discard(k)
+            
             time.sleep(0.01)
     finally:
         cv2.destroyAllWindows()
@@ -112,13 +216,6 @@ def _handle_capture(bot, state):
     print("캡처 완료: {}".format(save_path))
 
 
-def _key_to_char(key):
-    try:
-        return key.char
-    except AttributeError:
-        return None
-
-
 def _handle_video_recording(bot, state, recorder):
     """비디오 녹화 시작/중지"""
     with state["lock"]:
@@ -133,30 +230,6 @@ def _handle_video_recording(bot, state, recorder):
                 recorder.start_recording()
             state["recording"] = True
             print("[Video] 녹화 시작: {}".format(recorder.save_path))
-
-
-def _on_press(key, bot, state, recorder=None):
-    should_capture = False
-    should_toggle_video = False
-    with state["lock"]:
-        state["pressed"].add(key)
-        char = _key_to_char(key)
-        if char and char.lower() == "c":
-            should_capture = True
-        elif char and char.lower() == "v":
-            should_toggle_video = True
-    if should_capture:
-        _handle_capture(bot, state)
-    if should_toggle_video and recorder is not None:
-        _handle_video_recording(bot, state, recorder)
-
-
-def _on_release(key, state):
-    with state["lock"]:
-        state["pressed"].discard(key)
-    if key == keyboard.Key.esc:
-        state["running"] = False
-        return False
 
 
 def parse_args():
@@ -199,13 +272,16 @@ def main():
         "linear_speed": args.linear,
         "angular_speed": args.angular,
         "publish_interval": 1.0 / args.hz,
-        "pressed": set(),
+        "pressed": set(),  # OpenCV 키 코드 집합
         "lock": threading.Lock(),
         "running": True,
         "capture_dir": args.capture_dir,
         "capture_cooldown": max(0.1, args.capture_cooldown),
         "last_capture_time": 0.0,
         "recording": args.record,  # 초기 녹화 상태
+        "mode": args.mode,
+        "current_linear": 0.0,
+        "current_angular": 0.0,
     }
 
     publisher_thread = threading.Thread(
@@ -224,17 +300,23 @@ def main():
 
     print(
         "\nLiteBot 수동 주행 시작 (모드: {})\n"
-        "↑/↓ : 전진/후진  |  ←/→ : 좌회전/우회전\n"
-        "Space : 즉시 정지  |  C : 캡처  |  V : 비디오 녹화 토글  |  ESC : 종료\n"
+        "조작 방법:\n"
+        "  ↑/W : 전진\n"
+        "  ↓/S : 후진\n"
+        "  ←/A : 좌회전\n"
+        "  →/D : 우회전\n"
+        "  Space : 즉시 정지\n"
+        "  C : 프레임 캡처\n"
+        "  V : 비디오 녹화 토글\n"
+        "  ESC : 종료\n"
+        "\n주의: OpenCV 창이 포커스되어 있어야 키 입력이 인식됩니다.\n"
+        "      화살표 키가 작동하지 않으면 W/A/S/D 키를 사용하세요.\n"
         .format(args.mode)
     )
 
     try:
-        with keyboard.Listener(
-            on_press=lambda key: _on_press(key, bot, state, recorder),
-            on_release=lambda key: _on_release(key, state),
-        ) as listener:
-            listener.join()
+        # display_thread가 메인 루프 역할을 함
+        display_thread.join()
     except KeyboardInterrupt:
         print("\n[Interrupted] 사용자에 의해 중단되었습니다.")
 

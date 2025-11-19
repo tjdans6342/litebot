@@ -3,15 +3,19 @@
 
 """
     ActionExecutor 클래스
-    Trigger에서 반환된 액션을 실제 제어 명령으로 변환하여 실행합니다.
+    Trigger에서 반환된 액션을 실제 Tiki 제어 명령으로 변환하여 실행합니다.
+    
+    주의: Tiki는 한 번 호출하면 계속 실행되므로,
+    각 동작 실행 후 반드시 stop()을 호출해야 합니다.
 """
 import math
 import numpy as np
 
 from ai.detection_bridge import DetectionBridge
-# from litebot.io.ros.ros_controller import ROSController
 from litebot.io.tiki.tiki_controller import TikiController
 from litebot.core.control.pid_controller import PIDController
+import threading
+import time
 
 
 # 리소스 타입별 액션 분류
@@ -40,7 +44,7 @@ class ActionExecutor:
             ActionExecutor 초기화
             
             Args:
-                controller: Controller 객체 (ROSController 또는 TikiController)
+                controller: TikiController 객체
         """
         self.controller = controller
         
@@ -61,6 +65,15 @@ class ActionExecutor:
         # 나중에 LED, OLED executor 추가 시 사용
         self.led_executor = None
         self.oled_executor = None
+        
+        # ----- Tiki update_speed_angular 제어 -----
+        # Tiki는 한 번 호출하면 계속 실행되므로, duration 후 stop() 필요
+        self._update_speed_thread = None
+        self._update_speed_running = False
+        self._update_speed_lock = threading.Lock()
+        
+        # 마지막 motor 액션 추적
+        self._last_motor_action = None  # 마지막으로 실행한 motor 액션
     
     def _get_resource_type(self, cmd):
         """
@@ -113,13 +126,27 @@ class ActionExecutor:
         if resource_type:
             if resource_type == "motor":
                 # 모터 리소스는 controller로 체크
+                # update_speed_angular 실행 중이면 다른 액션은 무시
                 if self.controller.is_action_running():
                     print("[ActionExecutor] Motor resource busy, ignoring: {}".format(cmd))
                     return
                 
+                # update_speed_angular 스레드 체크 (이중 체크로 안전성 확보)
+                with self._update_speed_lock:
+                    if self._update_speed_running:
+                        print("[ActionExecutor] update_speed_angular running, ignoring: {}".format(cmd))
+                        return
+                
+                # update_speed_angular는 0.05초 동안 보호되어야 하므로
+                # 다른 액션이 들어와도 중단하지 않음 (위에서 이미 막힘)
+                # line 129, 135에서 체크하므로 여기까지 도달하지 않음
+                
                 # motor 리소스 액션에서 update_speed_angular가 아닌 경우 PID 리셋
                 if method_name != "_execute_update_speed_angular" and self.angular_pid is not None:
                     self.angular_pid.reset()
+                
+                # 마지막 motor 액션 기록
+                self._last_motor_action = cmd
             elif resource_type == "led":
                 # LED 리소스는 별도 executor로 체크 (나중에 확장 시)
                 if self.led_executor and hasattr(self.led_executor, "is_busy"):
@@ -148,6 +175,9 @@ class ActionExecutor:
         """
             LaneTrigger 등에서 전달된 선속도/각속도 명령을 실행
             
+            주의: Tiki는 한 번 호출하면 계속 실행되므로,
+            update_speed_angular 호출 후 duration(20Hz 기준 0.05초) 실행하고 stop()을 호출해야 합니다.
+            
             Args:
                 value: dict
                     - LaneTrigger 형식: {"speed": float, "angular": float}  # angular에는 combined_err가 담겨옴
@@ -165,14 +195,71 @@ class ActionExecutor:
         control = float(self.angular_pid.update(combined_err))
         angular_cmd = np.clip(control, -self.angular_limit, self.angular_limit)
 
-        # 컨트롤러 타입과 무관하게 동일 인터페이스로 위임
+        # 속도가 0이면 즉시 정지
+        if linear_speed == 0.0 and angular_cmd == 0.0:
+            self._stop_update_speed_angular()
+            self.controller.brake()
+            self._last_motor_action = "stop"
+            return
+
+        # Tiki는 한 번 호출하면 계속 실행되므로, duration 후 stop() 필요
+        # 20Hz 기준 0.05초 실행 후 stop() 호출
+        duration = 0.05  # 20Hz
+        
+        # 모터 제어 실행 (내부에서 _update_speed_running = True로 설정됨)
         self.controller.update_speed_angular(linear_speed, angular_cmd)
+        self._last_motor_action = "update_speed_angular"
+        
+        # ActionExecutor에서도 추적 (중복이지만 안전성 확보)
+        # duration 후 stop()을 호출하는 스레드 시작
+        with self._update_speed_lock:
+            # 기존 스레드가 있으면 종료 대기
+            if self._update_speed_thread is not None and self._update_speed_thread.is_alive():
+                self._update_speed_running = False
+                self._update_speed_thread.join(timeout=0.1)
+            
+            self._update_speed_running = True
+            self._update_speed_thread = threading.Thread(
+                target=self._update_speed_with_duration,
+                args=(duration,),
+                daemon=True
+            )
+            self._update_speed_thread.start()
+    
+    def _update_speed_with_duration(self, duration):
+        """
+            duration만큼 대기 후 stop() 호출
+        
+            Args:
+                duration: 대기 시간 (초)
+        """
+        time.sleep(duration)
+        
+        with self._update_speed_lock:
+            if self._update_speed_running:
+                # duration 후 stop() 호출 (Tiki는 한 번 호출하면 계속 실행되므로)
+                # brake() 내부에서 TikiController._update_speed_running도 해제됨
+                self.controller.brake()
+                self._update_speed_running = False
+    
+    def _stop_update_speed_angular(self):
+        """
+            update_speed_angular 제어 중단
+        """
+        with self._update_speed_lock:
+            if self._update_speed_running:
+                self.controller.brake()
+                self._update_speed_running = False
+                if self._update_speed_thread is not None and self._update_speed_thread.is_alive():
+                    self._update_speed_thread.join(timeout=0.1)
 
     def _execute_stop(self, value):
         """
             정지 액션 실행
         """
+        self._stop_update_speed_angular()
         self.controller.brake()
+        self._last_motor_action = "stop"
     
     def _execute_drive_forward(self, value):
         """
@@ -194,7 +281,9 @@ class ActionExecutor:
             return
         
         # 비동기로 실행 (즉시 반환)
+        # 주의: drive_forward_distance 내부에서 이미 brake()를 호출하므로 안전
         self.controller.execute_async(("drive_forward", (distance, speed)))
+        self._last_motor_action = "drive_forward"
 
     def _execute_drive_backward(self, value):
         """
@@ -216,7 +305,9 @@ class ActionExecutor:
             return
         
         # 비동기로 실행 (즉시 반환)
+        # 주의: drive_backward_distance 내부에서 이미 brake()를 호출하므로 안전
         self.controller.execute_async(("drive_backward", (distance, speed)))
+        self._last_motor_action = "drive_backward"
 
     def _execute_drive_circle(self, value):
         """
@@ -266,7 +357,9 @@ class ActionExecutor:
             angular_velocity = -angular_velocity
         
         # 비동기로 실행 (즉시 반환)
+        # 주의: drive_circle_distance 내부에서 이미 brake()를 호출하므로 안전
         self.controller.execute_async(("drive_circle", (distance, speed, angular_velocity)))
+        self._last_motor_action = "drive_circle"
     
     def _execute_rotate(self, value):
         """
@@ -284,8 +377,10 @@ class ActionExecutor:
             return
         
         # 비동기로 실행 (즉시 반환)
+        # 주의: rotate_in_place 내부에서 이미 brake()를 호출하므로 안전
         # rotate 명령은 (degrees, ang_speed) 형태로 전달
         self.controller.execute_async(("rotate", (value, self.rotate_ang_speed)))
+        self._last_motor_action = "rotate"
 
     # ========== 기타 액션 메서드 ==========
     
