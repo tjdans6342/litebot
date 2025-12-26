@@ -1,3 +1,159 @@
+# LiteBot: Real-time Robotic Perception & Control Platform (Experimental)
+
+LiteBot은 실시간 로봇 주행 환경에서 인식(perception)과 제어(control)를 어떻게 구조적으로 분리하고 운영할지를 실험하기 위해 만든 프로젝트다.
+완성된 제품/대회 최종 제출용 코드라기보다는, **아키텍처 설계와 실행 모델(비동기/리소스 분리), 하드웨어 추상화(ROS/Tiki)** 를 중심으로 정리된 실험 프로젝트에 가깝다.
+
+또한 이 프로젝트는 2025 국방 AI 경진대회 본선을 대비해, 대회 환경에서 제공되는 하드웨어에 종속적인 구현을 처음부터 끝까지 쌓기보다
+ROS 환경에서 먼저 구조를 안정화한 뒤, 본선에서 사용해야 하는 **대회 제공 전용 라이브러리(Tiki SDK)** 로 백엔드를 교체하는 방식으로 빠르게 적응하는 것을 목표로 했다.
+
+현재 기준으로 ROS 백엔드에서는 안정적으로 동작하지만,
+대회 제공 Tiki 백엔드는 제어 모델 차이로 인해 완전 통합까지는 완료하지 못했다.
+(하드웨어 환경 부재 및 시간 제약 포함)
+
+<br><br>
+
+---
+
+## 1. Overview
+
+LiteBot의 메인 루프는 아래 흐름을 반복한다.  
+프레임을 캡처한 뒤 이미지 처리를 거쳐 필요한 정보들을 감지(observation)하고, 트리거가 감지된 정보들을 종합해 현재 상황에서 가장 적절한 액션을 결정한다.
+
+```python
+# 1. 프레임 캡처
+self.frame = self.camera.get_frame()
+
+# 2. 이미지 처리
+self.images = self.image_processor.get_images(self.frame)
+
+# images가 None이면 빈 딕셔너리로 처리
+if self.images is None:
+    self.images = {}
+
+# 3. 감지 수행
+observations = {
+    "lane": self.observer.observe_lines(self.images.get("hough")),
+    "aruco": self.observer.observe_aruco(self.images.get("original")),
+    "pothole": self.observer.observe_pothole(self.images.get("binary")),
+    "qr_codes": self.observer.observe_qr_codes(self.images.get("original")),
+    # 필요한 경우 다른 감지 추가
+}
+
+# 4. 트리거 매니저가 적절한 액션을 반환
+action = self.trigger_manager.step(observations)
+
+# 5. 액션 실행
+if action:
+    self.action_executor.execute(action)
+```
+
+<br><br>
+
+---
+
+## 2. Key Features
+
+- 실시간 perception pipeline (차선 인식 + 객체 감지 연계)
+- 리소스 기반 비동기 액션 실행 모델  
+  (motor/led/oled 등 리소스 단위로 액션 실행을 분리)
+- 하드웨어 추상화 구조 (ROS / Tiki 백엔드 교체 가능)
+- 이미지 처리 파이프라인 (BEV, 컬러 필터링, Hough Line 등)
+- YOLO 추론을 별도 워커로 분리한 detection 구조 (bridge)
+- 분석/디버깅 도구 (HLS/RGB viewer, manual drive, recording/logging)
+- 테스트 구조 분리 (software / hardware / integration)
+
+<br><br>
+
+---
+
+## 3. System Architecture
+
+LiteBot은 크게 다음 레이어로 구성된다.
+
+- **core/**: 관측(Observer) 및 트리거 관리(Trigger manager)
+- **processing/**: 프레임 전처리 및 이미지 파이프라인
+- **action/**: 액션 실행기(Action executor) / 리소스 기반 실행 정책
+- **io/**: 하드웨어 인터페이스 (ROS / Tiki)
+- **ai/**: 객체 감지 워커 및 브릿지(Detection bridge)
+- **analysis/**: 디버깅 및 분석 도구
+- **tests/**: 로직/하드웨어/통합 테스트
+
+(여기에 블록 다이어그램 1장 넣으면 완성도가 확 올라감)
+
+
+<br><br>
+
+---
+
+## 4. Real-time Execution Strategy
+
+실시간 주행에서는 프레임 처리(perception)가 끊기면 곧바로 주행 품질이 무너진다.  
+그래서 LiteBot은 **프레임 처리 루프와 액션(모터/LED 등)을 분리**하고, 액션은 별도 실행 단위로 관리하는 구조를 목표로 했다.
+
+ROS와 Tiki는 모터를 제어하는 방식 자체가 달라서, 단순히 액션을 스레드로 분리하는 것만으로는 해결되지 않았다.
+ROS는 속도 명령을 계속 업데이트하는 방식인 반면, Tiki는 한 번 명령을 내리면 동작이 유지되는 방식에 가깝다.
+그래서 핵심 문제는 “비동기 처리”가 아니라, 상위 로직의 제어 명령을 두 환경에서 모두 자연스럽게 동작하도록 맞춰주는 제어 추상화(번역 계층)를 설계하는 일이었다.
+
+<br><br>
+
+---
+
+## 5. Pipeline Details
+
+### 5.1 Image Processing Pipeline
+- BEV 변환
+- HLS/RGB 이중 필터링
+- 그레이스케일/블러/임계값
+- 연결 컴포넌트 기반 노이즈 제거
+- Canny → Hough Line 기반 차선 검출
+
+![image_processing_example](image_processing_example.gif)
+
+
+### 5.2 Object Detection Pipeline (YOLO Worker + Bridge)
+YOLO 추론은 메인 루프에서 직접 돌리지 않고, 워커 프로세스로 분리했다.
+
+- 워커는 `to_detect_images/`를 주기적으로 스캔하고 추론 결과를 `detected.log(JSONL)`로 저장한다.
+- LiteBot 쪽은 bridge를 통해 프레임 저장 및 로그를 읽는다.
+
+<br><br>
+
+---
+
+## 6. Challenges & Improvements
+
+### 6.1 ROS ↔ Tiki 통합 이슈
+ROS 백엔드에서는 구조가 비교적 안정적으로 동작했지만, 대회 제공 Tiki SDK는 제어 모델이 달라 완전 통합이 어려웠다.  
+ROS는 선속도/각속도를 주기적으로 갱신하는 방식에 가깝고, Tiki는 RPM 또는 forward() 같은 동작을 한 번 실행하면 유지되는 방식에 가깝다.  
+이 차이 때문에 단순히 v,w → RPM 변환 함수를 추가하는 방식으로는 실제 주행에서 기대만큼 안정적으로 동작하지 않았다.
+
+결국 이 문제는 “스레드를 어떻게 짜느냐”보다, 상위 로직이 사용할 중립적인 제어 추상화(또는 하드웨어별 전용 제어 로직)를 어떻게 설계할지에 가까운 문제였다.
+
+### 6.2 더 나은 개선점: 리소스별 Trigger/Executor 분리(디버깅/실험 단위 축소)
+현재 구조는 TriggerManager가 모든 관찰 정보(observation)를 한 번에 종합해 단 하나의 액션을 결정하는 방식이다.  
+이 방식은 단순하고 빠르게 구현하기 좋지만, 대회처럼 시간이 촉박한 상황에서 문제가 발생하면 TriggerManager와 ActionExecutor 전체를 함께 의심해야 해서 디버깅 범위가 넓어질 수 있다.
+
+개선 방향으로는 TriggerManager와 ActionExecutor를 리소스별(motor/led/oled 등)로 분리하여, 각 리소스가 독립적으로 의사결정과 실행 흐름을 갖도록 설계하는 방법을 고려할 수 있다.  
+이렇게 분리하면 문제가 생겼을 때 해당 리소스에 해당하는 로직만 집중적으로 수정/검증할 수 있어 디버깅 시간이 줄어들고, 특히 대회 제공 Tiki SDK 통합처럼 모터 제어가 핵심인 경우에는 모터 리소스만 분리해서 빠르게 실험할 수 있다.
+
+실행 측면에서도 리소스별 워커 스레드를 두고(리소스 내부 충돌 정책 포함), 프레임 처리 루프(perception)가 블로킹되지 않도록 하면서 각 리소스가 독립적으로 동작하게 만드는 구조가 더 현실적일 수 있다.
+
+<br><br>
+
+---
+
+## 7. Limitations / Known Issues
+
+- Tiki 백엔드 완전 통합 미완성  
+  (제어 모델 차이 + 시간 제약 + 환경 제약)
+- 실제 하드웨어에서 장기/반복 테스트 부족
+- 일부 액션 정책(리소스별 실행/상호 배제)은 ROS 기준으로만 충분히 검증됨
+
+
+<br><br>
+
+## 8. Repository Structure
+
 ```
 litebot/
 ├── litebot/                       
@@ -87,154 +243,11 @@ litebot/
 └── requirements.txt
 ```
 
-## 주요 기능
+<br><br>
 
-### 1. 리소스 기반 비동기 액션 실행 시스템
+---
 
-- **리소스 타입별 액션 분류**: motor, led, oled 등으로 분류하여 독립적인 실행 제어
-- **비동기 실행**: 장시간 액션(drive_forward, rotate 등)은 스레드에서 실행하여 실시간 프레임 처리 보장
-- **리소스별 상호 배제**: 같은 리소스 타입의 액션이 실행 중이면 새 액션 무시 (큐 방식)
-- **동시 실행 지원**: 서로 다른 리소스 타입의 액션은 동시 실행 가능
+## 9. Tech Stack
 
-### 2. 이미지 처리 파이프라인
+Python, OpenCV, YOLO, ROS1, Linux, Jetson, threading/CLI 기반 도구
 
-- **BEV 변환**: 원근 보정을 통한 차선 감지 정확도 향상
-- **HLS/RGB 이중 필터링**: 조명 변화에 강건한 색상 필터링
-- **연결된 컴포넌트 분석**: `get_largest_component()` 함수로 도로 영역만 추출하고 노이즈 자동 제거
-- **파이프라인**: `BEV → HLS/RGB 필터링 → 그레이스케일 → 블러 → 임계값 → 연결된 컴포넌트 분석 → Canny → Hough Line`
-
-### 3. 객체 감지 파이프라인
-
-- `ai/object_detector.py`  
-  - 실행 시 `detects/YYYYMMDD_HHMM` 세션 폴더를 생성하고, 그 안에 `to_detect_images/`, `detected/`, `detected.log`를 자동 생성합니다.  
-  - LiteBot이 `to_detect_images/` 폴더에 저장한 이미지를 주기적으로 스캔하고 YOLO 추론 결과를 `detected.log`(JSON Lines)로 남깁니다.  
-  - 현재 세션 정보는 `detects/current_session.json`에 기록되며, 다른 프로세스가 참조할 수 있습니다.
-  - 감지된 바운딩박스/라벨이 그려진 이미지는 `detected/` 폴더에 원본 파일명 그대로 저장됩니다.
-
-- `ai/detection_bridge.py`  
-  - LiteBot 측에서 `current_session.json`을 읽어 최신 세션을 추적하고, 프레임을 HHMMSS.jpg 형태로 저장하거나 새로 추가된 감지 로그를 스트리밍할 수 있는 헬퍼 클래스입니다.
-
-### 4. 분석 및 디버깅 도구
-
-- **HLS/RGB Viewer** (`litebot/analysis/hls_viewer.py`)
-  - 비디오/이미지 파일에서 HLS 및 RGB 범위를 실시간으로 조정하며 분석
-  - 트랙바로 H/L/S, R/G/B 최소·최대값 조절
-  - HLS와 RGB 마스크를 AND 연산으로 결합하여 더 정확한 필터링
-  - 검은색 도로 감지를 위한 이중 필터링 지원
-
-- **Manual Drive** (`litebot/analysis/manual_drive.py`)
-  - 키보드로 로봇을 수동 제어하며 테스트
-  - 실시간 카메라 프레임 표시
-  - 이미지 캡처 기능
-
-### 5. 테스트 구조
-
-- **Software 테스트** (`tests/software/`): 로직 검증 (DummyController 사용)
-- **Hardware 테스트** (`tests/hardware/`): 실제 하드웨어 연동 검증
-- **Integration 테스트** (`tests/integration/`): 전체 시스템 통합 테스트
-
-## 실행 예시
-
-### 객체 감지 워커
-
-```bash
-# 객체 감지 워커 실행 (가중치는 models/ 아래에 위치)
-# --conf  : YOLO confidence threshold (예: 0.35)
-# --sleep : 폴더 폴링 주기 (초 단위)
-python ai/object_detector.py --model models/best_rokaf.pt --conf 0.35 --sleep 0.5
-```
-
-### LiteBot에서 감지 세션 사용
-
-```python
-from ai.detection_bridge import DetectionBridge
-
-bridge = DetectionBridge()
-bridge.save_frame(frame)
-logs = bridge.read_new_logs()
-```
-
-### HLS/RGB 범위 분석
-
-```bash
-# 비디오 파일 분석
-python -m litebot.analysis.hls_viewer --video recordings/example_video.mp4
-
-# 이미지 파일 분석
-python -m litebot.analysis.hls_viewer --video recordings/2024_maicon_photo.jpg
-
-# 스케일 조정
-python -m litebot.analysis.hls_viewer --video recordings/example_video.mp4 --scale 0.5
-```
-
-### 수동 주행 테스트
-
-```bash
-python -m litebot.analysis.manual_drive --linear 0.2 --angular 0.5
-```
-
-## Tiki 모드 사용법
-
-### Tiki 라이브러리 설치
-
-Tiki 라이브러리는 Jetson Nano에 이미 설치되어 있어야 합니다. 
-만약 설치되지 않았다면, 다음 경로에 설치되어 있는지 확인하세요:
-- `/home/jetson/Setup/venv/lib/python3.8/site-packages/tiki/mini/__init__.py`
-
-### 기본 실행
-
-```bash
-# Tiki 모드로 LiteBot 실행
-python examples/tiki/1_run_simple.py
-```
-
-### 센서 테스트
-
-```bash
-# 배터리, IMU, 인코더 값 읽기
-python examples/tiki/2_test_sensors.py
-```
-
-### LED 테스트
-
-```bash
-# LED 패턴 표시
-python examples/tiki/3_test_led.py
-```
-
-### Python 코드에서 사용
-
-```python
-from litebot.bot import LiteBot
-
-# Tiki 모드로 초기화
-bot = LiteBot(mode="tiki")
-
-# 센서 직접 사용
-from litebot.io.tiki import TikiSensor, TikiLed, TikiOled
-
-sensor = TikiSensor()
-voltage = sensor.get_battery_voltage()
-ax, ay, az = sensor.get_imu()
-
-led = TikiLed()
-led.set_pattern('X', (50, 0, 0))  # 빨간색 X 표시
-
-oled = TikiOled()
-oled.log("Hello Tiki!")
-```
-
-### Tiki API 주요 함수
-
-- **모터 제어**: `forward()`, `backward()`, `clockwise()`, `counter_clockwise()`, `stop()`
-- **센서**: `get_battery_voltage()`, `get_current()`, `get_imu()`, `get_encoder()`
-- **LED**: `set_led()`, `set_pattern()` (X, O, # 패턴 지원)
-- **OLED**: `log()`, `log_clear()`
-
-자세한 내용은 `litebot/io/tiki/` 디렉토리의 각 모듈을 참조하세요.
-
-### Tiki 모드 상세 가이드
-
-**⚠️ 중요**: 실제 하드웨어에서 Tiki 모드를 사용하기 전에 반드시 읽어보세요.
-
-- **[Tiki 모드 사용 가이드](docs/TIKI_MODE_GUIDE.md)**: 캘리브레이션, 설정, 문제 해결 등 상세 정보
